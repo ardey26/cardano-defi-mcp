@@ -33,6 +33,8 @@ services:
       # The BazaarSwap routing backend is a separate closed-source service with no
       # public host yet, so there is no sensible default to bake in — set the base
       # URL in the dashboard, or get_quote / build_swap_tx will fail.
+      - key: BAZAAR_API_KEY
+        sync: false
       - key: BAZAAR_API_URL
         sync: false
 

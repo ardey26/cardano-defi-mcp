@@ -71,6 +71,12 @@ export function getBaseUrl(): string {
   return (process.env.BAZAAR_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
 }
 
+/** Optional partner key for the Bazaar API (X-API-Key); unauthenticated without it. */
+export function apiKeyHeaders(): Record<string, string> {
+  const key = process.env.BAZAAR_API_KEY;
+  return key ? { 'X-API-Key': key } : {};
+}
+
 /**
  * Parse a text/event-stream chunk buffer into whole events.
  * Returns the parsed events plus whatever trailing partial text must be re-buffered.
@@ -127,7 +133,7 @@ export async function getQuote(params: SwapParams): Promise<QuoteRaceResult> {
 
   try {
     const res = await fetch(buildQuoteUrl(params), {
-      headers: { accept: 'text/event-stream' },
+      headers: { accept: 'text/event-stream', ...apiKeyHeaders() },
       signal: controller.signal,
     });
 
@@ -176,7 +182,7 @@ export async function getQuote(params: SwapParams): Promise<QuoteRaceResult> {
 export async function buildSwapTx(quoteId: string, userAddress: string): Promise<ExecuteResponse> {
   const res = await fetch(`${getBaseUrl()}/execute`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...apiKeyHeaders() },
     body: JSON.stringify({ quoteId, userAddress }),
   });
 
