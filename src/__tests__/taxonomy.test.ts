@@ -17,10 +17,11 @@ const EXPECTED_IDS = [
 ];
 
 describe('loadVenues', () => {
-  it('loads all 11 venue files', () => {
-    const venues = loadVenues();
-    expect(venues).toHaveLength(11);
-    expect(venues.map((v) => v.id).sort()).toEqual([...EXPECTED_IDS].sort());
+  it('loads at least the 11 curated venue files', () => {
+    // Superset check, not equality: this is a community registry, so a PR
+    // adding a new venue must not fail because the curated set grew.
+    const ids = loadVenues().map((v) => v.id);
+    for (const id of EXPECTED_IDS) expect(ids).toContain(id);
   });
 
   it('every venue validates against VenueSchema', () => {
@@ -32,9 +33,11 @@ describe('loadVenues', () => {
   it('assigns the documented integration levels', () => {
     expect(getVenue('indigo')?.integration).toBe('adapter_live');
     expect(getVenue('liqwid')?.integration).toBe('read_only');
-    for (const venue of loadVenues()) {
-      if (venue.id !== 'indigo' && venue.id !== 'liqwid') {
-        expect(venue.integration).toBe('indexed');
+    // Only the curated set is pinned; community-added venues choose their own
+    // (schema-valid) level, though 'indexed' is the norm for a new entry.
+    for (const id of EXPECTED_IDS) {
+      if (id !== 'indigo' && id !== 'liqwid') {
+        expect(getVenue(id)?.integration).toBe('indexed');
       }
     }
   });
@@ -42,7 +45,7 @@ describe('loadVenues', () => {
 
 describe('listVenues', () => {
   it('returns every venue with no filter', () => {
-    expect(listVenues()).toHaveLength(11);
+    expect(listVenues()).toHaveLength(loadVenues().length);
   });
 
   it('filters by category', () => {

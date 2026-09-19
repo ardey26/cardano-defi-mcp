@@ -1,0 +1,50 @@
+name: Taxonomy PR
+
+on:
+  pull_request:
+    paths:
+      - 'taxonomy/venues/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:taxonomy
+      - run: npx vitest run src/__tests__/taxonomy.test.ts
+
+      # Step summary rather than a PR comment: the token on a fork PR is
+      # read-only, so the comment API would fail for outside contributors.
+      - name: Summarize venue changes
+        if: always()
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          {
+            echo "## Venue changes"
+            echo
+            echo "| File | Change | Name | Category | Capabilities |"
+            echo "| --- | --- | --- | --- | --- |"
+            git diff --name-status --diff-filter=AM "$BASE_SHA" HEAD -- taxonomy/venues \
+              | while read -r change path; do
+                  node -e '
+                    const fs = require("node:fs");
+                    const [file, change] = process.argv.slice(1);
+                    const label = change === "A" ? "added" : "modified";
+                    let v = {};
+                    try { v = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+                    const caps = Array.isArray(v.capabilities) ? v.capabilities.join(", ") : "";
+                    console.log(`| ${file} | ${label} | ${v.name ?? "?"} | ${v.category ?? "?"} | ${caps} |`);
+                  ' "$path" "$change"
+                done
+          } >> "$GITHUB_STEP_SUMMARY"

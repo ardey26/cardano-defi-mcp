@@ -112,6 +112,34 @@ src/__tests__/              vitest; all network mocked
 See `DESIGN.md` for the module contracts and the top of `src/adapters/indigo.ts` for where the
 implementation deviates from the original design and why.
 
+## Taxonomy explorer
+
+`scripts/build-explorer.mjs` renders the venue records into a static page plus a machine-readable
+`taxonomy.json` bundle. The output is generated, not committed — `docs/` is gitignored.
+
+```bash
+npm run build:explorer && open docs/index.html   # local preview over file://
+```
+
+The published version is built and deployed to GitHub Pages by `.github/workflows/pages.yml` on
+every push to `main` that touches `taxonomy/` or `scripts/`. This requires the repository's
+**Settings → Pages → Source** to be set to **GitHub Actions**.
+
+## Add your protocol
+
+The taxonomy is a community registry — a venue is one JSON file, and adding one takes a PR.
+
+1. Fork the repo.
+2. Add `taxonomy/venues/<id>.json`. The filename (minus `.json`) must equal the record's `id`, and
+   the record must match [`src/taxonomy/schema.ts`](src/taxonomy/schema.ts). Copy an existing file
+   such as `taxonomy/venues/minswap.json` as a starting point.
+3. Run `npm run validate:taxonomy` locally — it needs no dependencies and names every problem.
+4. Open a PR. CI validates the file and prints a summary of what changed.
+
+Keep `notes` honest: say what you verified and what you did not. Asset lists are expected to be
+directional rather than exhaustive. On merge, the explorer and `taxonomy.json` republish
+automatically.
+
 ## Try the reference agent
 
 `npm run demo` runs `examples/reference-agent.ts`: a minimal MCP client that spawns this server over
