@@ -23,7 +23,13 @@ export function createMcpServer(): McpServer {
         'Cardano DeFi rails: browse a taxonomy of Cardano venues, quote cross-chain swaps into ADA through ' +
         'the BazaarSwap routing backend, read balances and Indigo/Liqwid positions, and build UNSIGNED ' +
         'transactions. This server holds no keys and no funds; every fund-touching tool returns a transaction ' +
-        'for you to sign and submit yourself.',
+        'for you to sign and submit yourself. ' +
+        "Conventions: amounts are in the token's smallest unit (USDC and ADA both use 6 decimals); " +
+        'Cardano\'s chain id is the string "CARDANO" and native ADA is the zero address. ' +
+        'Reliability: the quote backend sleeps when idle — if get_quote returns zero routes, that is ' +
+        'usually a cold start, not a missing route; wait ~30 seconds and retry once before concluding ' +
+        'no route exists. Quotes expire in ~60 seconds and open_cdp transactions embed a price valid ' +
+        '~280 seconds, so surface anything that needs signing immediately.',
     },
   );
 

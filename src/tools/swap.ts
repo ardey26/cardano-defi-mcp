@@ -13,7 +13,8 @@ export function registerSwapTools(server: McpServer): void {
         'Race the BazaarSwap routing backend for cross-chain swap quotes (for example EVM assets into ADA) and ' +
         'return the best route plus every route found, sorted by net output. Read-only: quoting moves no funds. ' +
         'Amounts are in the source token\'s smallest unit. The returned quoteId feeds build_swap_tx. ' +
-        'The race can take up to ~25 seconds.',
+        'The race can take up to ~35 seconds. An EMPTY result usually means the backend was cold-starting, ' +
+        'not that no route exists: wait ~30 seconds and retry once before reporting no route.',
       inputSchema: {
         fromChain: z.string().min(1).describe('Source chain id, e.g. "1" for Ethereum'),
         toChain: z.string().min(1).describe('Destination chain id, e.g. "CARDANO" for Cardano'),
