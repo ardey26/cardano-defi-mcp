@@ -148,6 +148,7 @@ src/tools/                  MCP tool registrations (thin: parse -> adapter -> JS
 src/server.ts               McpServer wiring + transport selection (stdio | http)
 src/http.ts                 Streamable HTTP host: routing, CORS, /health, rate limiting
 src/rate-limit.ts           in-memory sliding-window per-IP limiter
+src/wallet/                 agent-wallet: the local-only, key-holding companion server (see below)
 src/__tests__/              vitest; all network mocked
 ```
 
@@ -222,6 +223,113 @@ Configure the pair with flags or env (`.env.local` wins over `.env`):
 - **The private key never touches the MCP server.** It is read by the example only, and the server
   is spawned with `PRIVATE_KEY` stripped from its environment. The server still has no signing code
   path — `viem` is a devDependency used by this example alone, never by `src/`.
+
+## Agent wallet (autonomous signing, local only)
+
+`examples/execute-swap.ts` and `examples/execute-cdp.ts` prove the loop closes, but a human still runs
+them. `src/wallet/` is the same signing logic repackaged as a **second MCP server** — `agent-wallet` —
+so an agent can close the loop itself: the main server builds, the wallet signs and submits.
+
+> **Everything in the wallet key is spendable by the agent, without asking you, up to the caps below.**
+> There is no confirmation prompt anywhere in this server — the caps *are* the confirmation. Fund it
+> like a petty-cash drawer, not like a savings account. Use a burner. `npm run wallet -- gen` makes one.
+
+### The two-server composition
+
+Two servers with opposite security properties, registered side by side:
+
+| | `cardano-defi` | `agent-wallet` |
+| --- | --- | --- |
+| Transport | Streamable HTTP, public (or stdio) | **stdio only** — refuses to start with `PORT` or `MCP_TRANSPORT=http` set |
+| Keys | none, structurally (no signing code path) | holds `WALLET_EVM_PRIVATE_KEY` / `WALLET_CARDANO_PRIVATE_KEY` |
+| Output | quotes, balances, positions, **unsigned** CBOR/calldata | broadcast transaction hashes |
+| Blast radius if compromised | reads only | whatever the caps allow per 24 h |
+
+```jsonc
+{
+  "mcpServers": {
+    "cardano-defi": {
+      "type": "http",
+      "url": "https://cardano-defi-mcp.onrender.com/mcp"
+    },
+    "agent-wallet": {
+      "command": "npx",
+      "args": ["tsx", "src/wallet/server.ts"],
+      "cwd": "/absolute/path/to/cardano-defi-mcp",
+      "env": { "BLOCKFROST_PROJECT_ID": "mainnet<your-blockfrost-project-id>" }
+    }
+  }
+}
+```
+
+The keys themselves stay in `.env.local` (chmod 600, gitignored) — not in `.mcp.json`, which tends to
+get committed.
+
+```bash
+npm run wallet -- gen            # both burners into .env.local; prints ONLY the addresses
+npm run wallet -- gen evm        # or just one
+npm run wallet -- gen cardano
+npm run wallet                   # start the stdio server
+```
+
+### Tools
+
+| Tool | What it does | Funds |
+| --- | --- | --- |
+| `wallet_status` | Addresses, live balances (viem per allowlisted chain, Blockfrost for ADA), caps and remaining 24 h headroom. No key material. | read-only |
+| `sign_and_submit_evm` | Sign `{ chainId, to, data?, value, gasLimit? }`, broadcast, wait for the receipt | **spends** |
+| `approve_erc20` | Set an ERC-20 allowance (resets to zero first for USDT-class tokens) | **spends gas** |
+| `sign_and_submit_cardano` | Sign the unsigned CBOR from `open_cdp` / `close_cdp` and submit it via Blockfrost | **spends** |
+
+Whichever key is present is served; the other chain's tools fail with a clear message instead of
+silently doing nothing. Keys are never printed or returned, and every error leaving the process is
+run through a redactor first.
+
+### The policy leash
+
+Every signing tool checks the policy *before* it signs. Two caps per chain family — one per
+transaction, one rolling 24 hours — plus an EVM chain allowlist.
+
+| Variable | Governs | Default |
+| --- | --- | --- |
+| `WALLET_MAX_TX_LOVELACE` | ADA per transaction | `25000000` (25 ADA) |
+| `WALLET_MAX_DAILY_LOVELACE` | ADA per rolling 24 h | `100000000` (100 ADA) |
+| `WALLET_MAX_TX_WEI` | native EVM value per transaction | `10000000000000000` (0.01 ETH) |
+| `WALLET_MAX_DAILY_WEI` | native EVM value per rolling 24 h | `30000000000000000` (0.03 ETH) |
+| `WALLET_EVM_CHAINS` | chain ids the wallet may sign for at all | `1,42161,8453` |
+| `RPC_URL_<chainId>` | per-chain RPC override | viem's public RPC |
+| `WALLET_STATE_FILE` | where the spend ledger lives | `.wallet-state.json` at the repo root |
+
+- **The window is a true sliding window**, not a calendar day: a spend stops counting exactly 24 h
+  after it was recorded.
+- **Recorded on successful submit only**, to `.wallet-state.json` (gitignored, chmod 600), so the caps
+  survive a restart — otherwise an agent could reset them by restarting the server. A corrupt ledger
+  file refuses to sign rather than reading as empty.
+- **Denials are plannable.** A refusal comes back as `isError` carrying the cap, the attempted amount,
+  what is already spent, the headroom left, and — for a daily-cap denial — the ISO timestamp at which
+  enough older spends age out for the attempt to fit.
+- **The EVM caps count native value only.** `value` is what they measure, so an ERC-20 transfer —
+  which moves tokens through calldata and carries `value: 0` — passes the caps untouched. Likewise
+  `approve_erc20` is exempt from the value caps (an approval moves no value) but still requires an
+  allowlisted chain, and an approval *authorises* a spender to move tokens later, which the caps do
+  not police either. Approve exact amounts, to spenders that came from a quote, and do not keep
+  token balances in this wallet that you would mind losing. The Cardano cap has no such hole: it
+  measures the whole ADA outflow of the transaction body.
+- **EVM amounts are summed in wei across chains.** That is only coherent because the default allowlist
+  is ETH-native throughout; adding a chain with a different native token makes the daily EVM cap add
+  apples to oranges.
+- **Cardano spend is measured conservatively**: every output that does not pay back to the wallet,
+  plus the fee. A transaction body carries no input values, so an exact net outflow would mean a UTxO
+  lookup per input; this over-counts when the transaction also spends value the wallet did not own
+  (closing a CDP, for instance). Over-counting denies more than it should, never less. See the comment
+  on `cardanoOutflowLovelace` in `src/wallet/cardano.ts`.
+
+### What the wallet does not change about the main server
+
+`src/wallet/` is compiled by `npm run build` (so `tsc` typechecks it) but nothing in `dist/server.js`
+imports it — the hosted server's code path still has no way to sign anything, and `npm start` still
+starts the keyless server. `viem` remains a devDependency used only by the examples and this
+local-only wallet.
 
 ## License
 

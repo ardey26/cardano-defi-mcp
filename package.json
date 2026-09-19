@@ -7,12 +7,14 @@
     "test": "vitest run",
     "build": "tsc",
     "dev": "tsx src/server.ts",
+    "wallet": "npx tsx src/wallet/server.ts",
     "start": "node dist/server.js",
     "build:explorer": "node scripts/build-explorer.mjs",
     "validate:taxonomy": "node scripts/validate-taxonomy.mjs",
     "demo": "npx tsx examples/reference-agent.ts",
     "execute": "npx tsx examples/execute-swap.ts",
-    "execute:cdp": "npx tsx examples/execute-cdp.ts"
+    "execute:cdp": "npx tsx examples/execute-cdp.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json"
   },
   "keywords": [],
   "author": "",
