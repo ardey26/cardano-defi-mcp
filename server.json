@@ -1,0 +1,60 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.OWNER/bazaarswap-cardano",
+  "title": "BazaarSwap Cardano",
+  "description": "Cardano DeFi taxonomy plus unsigned-transaction MCP tools for agents (holds no keys)",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/OWNER/bazaarswap-cardano",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "bazaarswap-cardano",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BLOCKFROST_PROJECT_ID",
+          "description": "Blockfrost project id; required for get_balance, open_cdp and close_cdp",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BAZAAR_API_URL",
+          "description": "BazaarSwap routing API base URL used by get_quote and build_swap_tx",
+          "isRequired": false,
+          "default": "http://localhost:3001"
+        },
+        {
+          "name": "LIQWID_GRAPHQL_URL",
+          "description": "Liqwid public GraphQL endpoint (read-only)",
+          "isRequired": false,
+          "default": "https://v2.api.liqwid.finance/graphql"
+        },
+        {
+          "name": "CARDANO_NETWORK",
+          "description": "Cardano network for Blockfrost and Indigo host selection",
+          "isRequired": false,
+          "default": "mainnet",
+          "choices": ["mainnet", "preprod"]
+        },
+        {
+          "name": "INDIGO_API_URL",
+          "description": "Indigo public analytics API used for CDP position reads",
+          "isRequired": false,
+          "default": "https://analytics.indigoprotocol.io"
+        },
+        {
+          "name": "INDIGO_SYSTEM_PARAMS_URL",
+          "description": "URL of the Indigo SystemParams JSON; required by open_cdp and close_cdp",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

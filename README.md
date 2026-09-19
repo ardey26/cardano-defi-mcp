@@ -109,6 +109,12 @@ src/__tests__/              vitest; all network mocked
 See `DESIGN.md` for the module contracts and the top of `src/adapters/indigo.ts` for where the
 implementation deviates from the original design and why.
 
+## Try the reference agent
+
+`npm run demo` runs `examples/reference-agent.ts`: a minimal MCP client that spawns this server over
+stdio, lists its tools, and calls `list_venues`, `get_market_data` and `get_position` against live
+public APIs. No API keys needed; network access is.
+
 ## License
 
 Apache-2.0
