@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cardano DeFi Taxonomy — BazaarSwap</title>
+<meta name="description" content="An open index of Cardano DeFi venues, published to AI agents by the BazaarSwap MCP server.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --paper: #eff0f3;
+  --surface: #ffffff;
+  --ink: #15181d;
+  --muted: #5a626c;
+  --rule: #d5d9df;
+  --rule-soft: #e4e7eb;
+  --accent: #1f3c88;
+  --accent-soft: #e6eaf6;
+  --chip: #f4f5f7;
+  --live: #1f3c88;
+  --partial: #7a5310;
+  --idle: #6b7280;
+  --focus: #1f3c88;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f1115;
+    --surface: #161920;
+    --ink: #e3e6ea;
+    --muted: #98a0aa;
+    --rule: #272c35;
+    --rule-soft: #21252c;
+    --accent: #9db2ff;
+    --accent-soft: #1b2338;
+    --chip: #1d212a;
+    --live: #9db2ff;
+    --partial: #d8a94a;
+    --idle: #8b939d;
+    --focus: #9db2ff;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+a { color: inherit; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+a:hover { text-decoration-color: currentColor; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---------- masthead ---------- */
+
+.masthead { padding: 56px 0 28px; }
+
+h1 {
+  font-family: Newsreader, ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(2rem, 6vw, 2.9rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+  max-width: 18ch;
+}
+
+.lede {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 1.0625rem;
+}
+
+.masthead .repo {
+  display: inline-block;
+  margin-top: 18px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* ---------- status key ---------- */
+
+.key {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  background: var(--rule-soft);
+  border: 1px solid var(--rule-soft);
+  margin: 32px 0 0;
+}
+
+.key-item {
+  background: var(--surface);
+  padding: 14px 16px 16px;
+  border-left: 3px solid var(--idle);
+}
+.key-item[data-integration="adapter_live"] { border-left-style: solid; border-left-color: var(--live); }
+.key-item[data-integration="read_only"] { border-left-style: dashed; border-left-color: var(--partial); }
+.key-item[data-integration="indexed"] { border-left-style: dotted; border-left-color: var(--idle); }
+
+.key-count {
+  font-family: Newsreader, ui-serif, Georgia, serif;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: block;
+  margin-bottom: 6px;
+}
+.key-name { font-weight: 600; font-size: 0.875rem; }
+.key-desc { display: block; color: var(--muted); font-size: 0.8125rem; line-height: 1.45; margin-top: 3px; }
+
+/* ---------- controls ---------- */
+
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  margin-top: 36px;
+  padding: 12px 0;
+}
+
+.controls-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+
+#search {
+  flex: 1 1 220px;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 7px 10px;
+}
+#search::placeholder { color: var(--muted); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.filters button {
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.filters button:hover { color: var(--ink); border-color: var(--muted); }
+.filters button[aria-pressed="true"] {
+  color: var(--surface);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- register ---------- */
+
+.register { border-bottom: 1px solid var(--rule); }
+
+.record {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 2.3fr;
+  gap: 8px 32px;
+  padding: 26px 0 26px 16px;
+  border-top: 1px solid var(--rule-soft);
+  border-left: 3px solid var(--idle);
+}
+.register .record:first-child { border-top: none; }
+.record[data-integration="adapter_live"] { border-left-style: solid; border-left-color: var(--live); }
+.record[data-integration="read_only"] { border-left-style: dashed; border-left-color: var(--partial); }
+.record[data-integration="indexed"] { border-left-style: dotted; border-left-color: var(--idle); }
+
+.venue-name {
+  font-family: Newsreader, ui-serif, Georgia, serif;
+  font-weight: 500;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+
+.venue-meta { font-size: 0.8125rem; color: var(--muted); }
+.venue-meta .category { color: var(--ink); }
+.venue-url { display: block; margin-top: 6px; font-size: 0.8125rem; color: var(--muted); word-break: break-word; }
+
+.status {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.status[data-integration="adapter_live"] { color: var(--surface); background: var(--live); border-color: var(--live); }
+.status[data-integration="read_only"] { color: var(--partial); border-color: var(--partial); border-style: dashed; background: transparent; }
+.status[data-integration="indexed"] { color: var(--idle); border-color: var(--rule); border-style: dotted; background: transparent; }
+@media (prefers-color-scheme: dark) {
+  .status[data-integration="adapter_live"] { color: #0f1115; }
+}
+
+.detail p.description { margin: 0 0 14px; max-width: 68ch; }
+
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin-bottom: 8px; }
+.row-label { font-size: 0.75rem; color: var(--muted); flex: 0 0 5.5rem; }
+
+.chip {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  padding: 2px 7px;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+}
+.chip.asset { font-variant-numeric: tabular-nums; }
+.chip.capability { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+
+.notes {
+  margin-top: 14px;
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 10px;
+  max-width: 72ch;
+}
+.notes > summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  list-style: none;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.notes > summary::-webkit-details-marker { display: none; }
+.notes > summary::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg) translate(-1px, -1px);
+  transition: transform 120ms ease;
+  flex: 0 0 auto;
+}
+.notes[open] > summary::before { transform: rotate(45deg) translate(-2px, -2px); }
+.notes p { margin: 10px 0 0; color: var(--muted); font-size: 0.9375rem; }
+
+.empty { padding: 48px 0; color: var(--muted); }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+footer {
+  padding: 36px 0 56px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+footer p { margin: 0 0 6px; max-width: 68ch; }
+
+@media (max-width: 720px) {
+  .masthead { padding: 36px 0 20px; }
+  .record { grid-template-columns: 1fr; gap: 14px; padding-left: 12px; }
+  .row-label { flex: 0 0 100%; }
+  .count { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="masthead wrap">
+  <h1>Cardano DeFi Taxonomy</h1>
+  <p class="lede">An open index of Cardano DeFi venues — what each one is, what it lets you do, and how far our integration actually goes. A BazaarSwap MCP server publishes this same file to AI agents, so what an agent is told is what you can read here.</p>
+  <a class="repo" href="{{REPO_URL}}">Source, schema and venue files on GitHub</a>
+  <div class="key" id="key"></div>
+</header>
+
+<div class="controls">
+  <div class="wrap controls-inner">
+    <label for="search" class="visually-hidden">Search venues</label>
+    <input id="search" type="search" placeholder="Search name, description or asset" autocomplete="off">
+    <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="register" id="register"></div>
+  <p class="empty" id="empty" hidden></p>
+</main>
+
+<footer class="wrap">
+  <p>Integration status describes this project's connection to the venue, not the venue's own maturity. Coverage notes record where the data is incomplete or unverified; read them before relying on a listing.</p>
+  <p>Generated from taxonomy/venues/*.json.</p>
+</footer>
+
+<script>
+const VENUES = {{VENUES_JSON}};
+
+const CATEGORY_LABELS = {
+  dex: "DEX",
+  lending: "Lending",
+  cdp: "CDP",
+  stablecoin: "Stablecoin",
+  derivatives: "Derivatives"
+};
+
+const CAPABILITY_LABELS = {
+  swap: "swap",
+  liquidity_provision: "liquidity provision",
+  supply: "supply",
+  borrow: "borrow",
+  cdp_mint: "CDP mint",
+  stability_pool: "stability pool",
+  staking: "staking",
+  perps: "perpetuals",
+  stablecoin_mint: "stablecoin mint"
+};
+
+const INTEGRATION = [
+  { id: "adapter_live", label: "Adapter live", desc: "Reads live state and builds unsigned transactions." },
+  { id: "read_only", label: "Read only", desc: "Reads live protocol data. No transaction building." },
+  { id: "indexed", label: "Indexed", desc: "Described in the index. No live connection yet." }
+];
+
+const INTEGRATION_LABELS = Object.fromEntries(INTEGRATION.map(s => [s.id, s.label]));
+
+const label = (map, value) => map[value] || value.replace(/_/g, " ");
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function chipRow(labelText, values, chipClass, mapper) {
+  const row = el("div", "row");
+  row.appendChild(el("span", "row-label", labelText));
+  values.forEach(v => row.appendChild(el("span", "chip " + chipClass, mapper ? mapper(v) : v)));
+  return row;
+}
+
+function renderKey() {
+  const key = document.getElementById("key");
+  INTEGRATION.forEach(state => {
+    const n = VENUES.filter(v => v.integration === state.id).length;
+    const item = el("div", "key-item");
+    item.dataset.integration = state.id;
+    item.appendChild(el("span", "key-count", String(n)));
+    item.appendChild(el("span", "key-name", state.label));
+    item.appendChild(el("span", "key-desc", state.desc));
+    key.appendChild(item);
+  });
+}
+
+function renderRecord(venue) {
+  const record = el("article", "record");
+  record.dataset.integration = venue.integration;
+
+  const head = el("div", "head");
+  head.appendChild(el("h2", "venue-name", venue.name));
+
+  const meta = el("div", "venue-meta");
+  meta.appendChild(el("span", "category", label(CATEGORY_LABELS, venue.category)));
+  head.appendChild(meta);
+
+  const link = el("a", "venue-url", venue.url.replace(/^https?:\/\//, ""));
+  link.href = venue.url;
+  link.rel = "noopener";
+  head.appendChild(link);
+
+  const status = el("span", "status", label(INTEGRATION_LABELS, venue.integration));
+  status.dataset.integration = venue.integration;
+  head.appendChild(status);
+
+  const detail = el("div", "detail");
+  detail.appendChild(el("p", "description", venue.description));
+  detail.appendChild(chipRow("Assets", venue.assets, "asset"));
+  detail.appendChild(chipRow("Does", venue.capabilities, "capability", v => label(CAPABILITY_LABELS, v)));
+
+  if (venue.notes) {
+    const notes = el("details", "notes");
+    notes.setAttribute("open", "");
+    notes.appendChild(el("summary", null, "Coverage notes"));
+    notes.appendChild(el("p", null, venue.notes));
+    detail.appendChild(notes);
+  }
+
+  record.appendChild(head);
+  record.appendChild(detail);
+  return record;
+}
+
+const state = { category: "all", query: "" };
+
+function matches(venue) {
+  if (state.category !== "all" && venue.category !== state.category) return false;
+  if (!state.query) return true;
+  const haystack = [venue.name, venue.id, venue.description, venue.assets.join(" ")].join(" ").toLowerCase();
+  return state.query.split(/\s+/).every(term => haystack.includes(term));
+}
+
+function render() {
+  const register = document.getElementById("register");
+  const empty = document.getElementById("empty");
+  const shown = VENUES.filter(matches);
+
+  register.replaceChildren(...shown.map(renderRecord));
+  document.getElementById("count").textContent =
+    shown.length === VENUES.length
+      ? VENUES.length + " venues"
+      : shown.length + " of " + VENUES.length + " venues";
+
+  empty.hidden = shown.length > 0;
+  empty.textContent = "No venue matches that filter. Clear the search or choose All to see all " + VENUES.length + ".";
+}
+
+function renderFilters() {
+  const container = document.getElementById("filters");
+  const categories = ["all", ...Array.from(new Set(VENUES.map(v => v.category)))];
+  categories.forEach(cat => {
+    const button = el("button", null, cat === "all" ? "All" : label(CATEGORY_LABELS, cat));
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(cat === state.category));
+    button.addEventListener("click", () => {
+      state.category = cat;
+      container.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(categories[i] === cat)));
+      render();
+    });
+    container.appendChild(button);
+  });
+}
+
+document.getElementById("search").addEventListener("input", event => {
+  state.query = event.target.value.trim().toLowerCase();
+  render();
+});
+
+renderKey();
+renderFilters();
+render();
+</script>
+
+</body>
+</html>
