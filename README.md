@@ -44,6 +44,13 @@ restart Claude Code. Then `/mcp` should list `cardano-defi-mcp` with nine tools.
 
 ## Hosted / HTTP mode
 
+A public instance runs at **`https://cardano-defi-mcp.onrender.com/mcp`** (free tier: expect a cold
+start after idle). Connect from Claude Code:
+
+```bash
+claude mcp add --transport http cardano-defi https://cardano-defi-mcp.onrender.com/mcp
+```
+
 The same nine tools also speak **Streamable HTTP**, so the server can be hosted instead of spawned.
 stdio stays the default; setting `PORT` (or `MCP_TRANSPORT=http`) switches transports.
 
