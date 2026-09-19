@@ -1,0 +1,11 @@
+{
+  "id": "muesliswap",
+  "name": "MuesliSwap",
+  "category": "dex",
+  "url": "https://muesliswap.com",
+  "description": "One of the earliest Cardano DEXs, operating a hybrid on-chain orderbook and AMM model. Trades ADA against a broad set of Cardano native tokens.",
+  "assets": ["ADA", "MILK"],
+  "capabilities": ["swap", "liquidity_provision"],
+  "integration": "indexed",
+  "notes": "Added as the first community-registry PR, which doubles as the live test of the taxonomy PR validation workflow. Asset list is directional (ADA plus the MILK protocol token); MuesliSwap lists many more pairs than recorded here."
+}
