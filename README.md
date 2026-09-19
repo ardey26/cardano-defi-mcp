@@ -1,4 +1,4 @@
-# BazaarSwap Cardano — taxonomy + MCP server
+# cardano-defi-mcp — Cardano DeFi taxonomy + MCP server
 
 Open-source proof of concept for the **Cardano PRIME** grant. Two things in one small package:
 
@@ -37,7 +37,7 @@ Every read tool except `get_balance` and the Indigo tools works with no API keys
 ### Register with Claude Code
 
 Copy `.mcp.json.example` to `.mcp.json` in your project root, fill in the env placeholders, and
-restart Claude Code. Then `/mcp` should list `bazaarswap-cardano` with nine tools.
+restart Claude Code. Then `/mcp` should list `cardano-defi-mcp` with nine tools.
 
 ## Tools
 

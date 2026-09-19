@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "bazaarswap-cardano": {
+    "cardano-defi-mcp": {
       "command": "npx",
       "args": ["tsx", "src/server.ts"],
       "env": {

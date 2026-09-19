@@ -1,4 +1,4 @@
-# BazaarSwap Cardano — Taxonomy + MCP Server (PoC)
+# Cardano DeFi MCP — taxonomy + agent tools (PoC)
 
 Open-source proof of concept for the Cardano PRIME grant: a taxonomy index of Cardano
 DeFi venues plus an MCP server that lets AI agents discover Cardano DeFi, get cross-chain

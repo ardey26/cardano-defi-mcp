@@ -1,5 +1,5 @@
 {
-  "name": "bazaarswap-cardano",
+  "name": "cardano-defi-mcp",
   "version": "0.1.0",
   "description": "Cardano DeFi taxonomy + MCP server: agent rails into Cardano DeFi via BazaarSwap cross-chain routing",
   "main": "index.js",

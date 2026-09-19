@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.OWNER/bazaarswap-cardano",
+  "name": "io.github.OWNER/cardano-defi-mcp",
   "title": "BazaarSwap Cardano",
   "description": "Cardano DeFi taxonomy plus unsigned-transaction MCP tools for agents (holds no keys)",
   "version": "0.1.0",
   "repository": {
-    "url": "https://github.com/OWNER/bazaarswap-cardano",
+    "url": "https://github.com/OWNER/cardano-defi-mcp",
     "source": "github"
   },
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
-      "identifier": "bazaarswap-cardano",
+      "identifier": "cardano-defi-mcp",
       "version": "0.1.0",
       "transport": {
         "type": "stdio"
