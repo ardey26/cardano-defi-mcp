@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "bazaarswap-cardano": {
+      "command": "npx",
+      "args": ["tsx", "src/server.ts"],
+      "env": {
+        "BLOCKFROST_PROJECT_ID": "mainnet<your-blockfrost-project-id>",
+        "BAZAAR_API_URL": "http://localhost:3001",
+        "LIQWID_GRAPHQL_URL": "https://v2.api.liqwid.finance/graphql",
+        "CARDANO_NETWORK": "mainnet",
+        "INDIGO_API_URL": "https://analytics.indigoprotocol.io",
+        "INDIGO_SYSTEM_PARAMS_URL": "<url-to-indigo-system-params.json>"
+      }
+    }
+  }
+}
