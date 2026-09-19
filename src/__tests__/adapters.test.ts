@@ -433,7 +433,7 @@ describe('blockfrost.getBalance', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(getBalance(ADDRESS)).rejects.toThrow(/BLOCKFROST_PROJECT_ID required/);
+    await expect(getBalance(ADDRESS)).rejects.toThrow(/BLOCKFROST_PROJECT_ID is not set/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

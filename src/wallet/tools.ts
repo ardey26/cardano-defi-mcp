@@ -10,11 +10,12 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { erc20Abi, type Hex } from 'viem';
+import { getAddressDetails } from '@lucid-evolution/lucid';
 
 import { getBalance } from '../adapters/blockfrost.js';
 import { cardanoOutflowLovelace, explorerTxUrl as cardanoExplorerTxUrl, mkSigner } from './cardano.js';
 import { chainEntry, explorerTxUrl, publicClientFor, walletClientFor, EVM_CHAINS } from './evm.js';
-import { cardanoAddress, evmAddress, hasCardanoKey, hasEvmKey, redact } from './keys.js';
+import { cardanoAddress, evmAddress, hasCardanoKey, hasEvmKey, network, redact } from './keys.js';
 import {
   assertEvmChainAllowed,
   assertSpendAllowed,
@@ -62,6 +63,13 @@ export function registerWalletTools(server: McpServer): void {
     },
     async () =>
       walletResult(async () => {
+        if (!hasEvmKey() && !hasCardanoKey()) {
+          throw new Error(
+            'This wallet holds no keys yet, so there is nothing to report. Call setup_wallet to create ' +
+              'burner keys (both chains by default), then show the user the addresses it returns so they ' +
+              'can fund them.',
+          );
+        }
         const policy = loadPolicy();
         const ledger = readLedger();
         const now = Date.now();
@@ -87,11 +95,21 @@ export function registerWalletTools(server: McpServer): void {
                 }),
               ),
             }
-          : { address: null, note: 'WALLET_EVM_PRIVATE_KEY is not set — EVM signing is unavailable' };
+          : {
+              address: null,
+              note:
+                'WALLET_EVM_PRIVATE_KEY is not set — EVM signing is unavailable. ' +
+                "Call setup_wallet with chains ['evm'] to create one.",
+            };
 
         const cardano = await (async () => {
           if (!hasCardanoKey()) {
-            return { address: null, note: 'WALLET_CARDANO_PRIVATE_KEY is not set — Cardano signing is unavailable' };
+            return {
+              address: null,
+              note:
+                'WALLET_CARDANO_PRIVATE_KEY is not set — Cardano signing is unavailable. ' +
+                "Call setup_wallet with chains ['cardano'] to create one.",
+            };
           }
           const address = cardanoAddress();
           try {
@@ -294,6 +312,69 @@ export function registerWalletTools(server: McpServer): void {
             outputs: outflow.outputs,
             note: 'conservative: outputs not returning to this wallet, plus the fee — see src/wallet/cardano.ts',
           },
+          policy: decision.detail,
+        };
+      }),
+  );
+
+  server.registerTool(
+    'send_cardano',
+    {
+      title: 'Send ADA to a Cardano address',
+      description:
+        `${SPENDS_REAL_FUNDS} Builds, signs and submits a plain ADA payment from this wallet. This is the ` +
+        'Cardano-side execution leg of a deposit-address bridge: a quote that starts on Cardano gives a ' +
+        'deposit address, and the swap happens when this wallet pays it — so `to` usually comes straight ' +
+        'from a quote, and the payment must be exact. The amount plus the fee is checked against the ' +
+        'lovelace caps before anything is signed. Requires BLOCKFROST_PROJECT_ID and ' +
+        'WALLET_CARDANO_PRIVATE_KEY. For an already-built transaction (open_cdp, close_cdp) use ' +
+        'sign_and_submit_cardano instead.',
+      inputSchema: {
+        to: z.string().min(1).describe('Bech32 recipient address, on the same network as this wallet'),
+        lovelace: amountString('lovelace').describe('Amount to send, in lovelace (1 ADA = 1000000 lovelace)'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ to, lovelace }) =>
+      walletResult(async () => {
+        const net = network();
+        let details: ReturnType<typeof getAddressDetails>;
+        try {
+          details = getAddressDetails(to);
+        } catch (err) {
+          throw new Error(`'to' is not a valid Cardano address: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        const expectedNetworkId = net === 'Mainnet' ? 1 : 0;
+        if (details.networkId !== expectedNetworkId) {
+          throw new Error(
+            `'to' is a ${details.networkId === 1 ? 'mainnet' : 'testnet'} address but this wallet is on ` +
+              `${net}. Refusing to send — funds sent across networks are lost.`,
+          );
+        }
+
+        const policy = loadPolicy();
+        const amount = BigInt(lovelace);
+        // Checked before building so an over-cap request costs no Blockfrost
+        // round trip; checked again below on the real outflow, which adds the fee.
+        assertSpendAllowed(policy, readLedger(), 'cardano', amount, Date.now());
+
+        const { lucid, address } = await mkSigner();
+        const built = await lucid.newTx().pay.ToAddress(to, { lovelace: amount }).complete();
+        const outflow = cardanoOutflowLovelace(built.toCBOR(), address);
+        const decision = assertSpendAllowed(policy, readLedger(), 'cardano', outflow.lovelace, Date.now());
+
+        const signed = await built.sign.withWallet().complete();
+        const txHash = await signed.submit();
+        recordSpend({ at: Date.now(), family: 'cardano', amount: outflow.lovelace.toString(), txHash });
+
+        return {
+          txHash,
+          explorerUrl: cardanoExplorerTxUrl(txHash),
+          from: address,
+          to,
+          sent: formatAmount('cardano', amount),
+          charged: formatAmount('cardano', outflow.lovelace),
+          fee: formatAmount('cardano', outflow.fee),
           policy: decision.detail,
         };
       }),

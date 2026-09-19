@@ -17,26 +17,16 @@
  * message rather than silently doing nothing.
  */
 
-import { appendFileSync, chmodSync, existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { generatePrivateKey as generateCardanoKey } from '@lucid-evolution/lucid';
-import { generatePrivateKey as generateEvmKey, privateKeyToAccount } from 'viem/accounts';
 
-import {
-  addressOf,
-  CARDANO_KEY_ENV,
-  EVM_KEY_ENV,
-  hasCardanoKey,
-  hasEvmKey,
-  loadEnvFiles,
-  network,
-  redact,
-} from './keys.js';
+import { resolveCredentialsPath } from './home.js';
+import { bootstrapCli, CARDANO_KEY_ENV, EVM_KEY_ENV, hasCardanoKey, hasEvmKey, redact } from './keys.js';
+import { ensureKeys, hasKeyLine, registerOnboardingTools, type Chain } from './onboarding.js';
 import { loadPolicy, policySummary } from './policy.js';
-import { readLedger, REPO_ROOT, stateFilePath } from './state.js';
+import { readLedger, stateFilePath } from './state.js';
 import { registerWalletTools } from './tools.js';
 
 export function createWalletServer(): McpServer {
@@ -52,11 +42,14 @@ export function createWalletServer(): McpServer {
         'addresses, the live balances and the remaining daily headroom; a denial comes back as an error ' +
         'carrying the cap, the attempted amount and the headroom, so re-plan from it rather than retrying. ' +
         'Cardano transactions can embed a price valid for only ~280 seconds — sign them immediately after ' +
-        'they are built.',
+        'they are built. ' +
+        'FIRST RUN: if wallet_status reports no keys, call setup_wallet and show the user the addresses and ' +
+        'the funding note it returns; if a tool says a setting is missing, it names the call that fixes it.',
     },
   );
 
   registerWalletTools(server);
+  registerOnboardingTools(server);
   return server;
 }
 
@@ -85,33 +78,15 @@ export function assertStdioOnly(env: NodeJS.ProcessEnv = process.env): void {
 
 // ── gen ─────────────────────────────────────────────────────────────────────
 
-function envFilePath(): string {
-  return process.env.ENV_FILE ?? `${REPO_ROOT}.env.local`;
-}
-
-function hasKeyLine(path: string, key: string): boolean {
-  return existsSync(path) && new RegExp(`^\\s*${key}\\s*=\\s*\\S`, 'm').test(readFileSync(path, 'utf8'));
-}
-
-function appendKey(path: string, key: string, value: string): void {
-  const prefix = existsSync(path) && !readFileSync(path, 'utf8').endsWith('\n') ? '\n' : '';
-  appendFileSync(path, `${prefix}${key}=${value}\n`, { mode: 0o600 });
-  try {
-    chmodSync(path, 0o600);
-  } catch {
-    // best effort; a non-POSIX filesystem is not a reason to fail
-  }
-}
-
 /** Create burner keys and print ONLY their addresses. Never overwrites a key. */
 function cmdGen(which: string[]): void {
-  const wanted = which.length === 0 ? ['evm', 'cardano'] : which;
+  const wanted = (which.length === 0 ? ['evm', 'cardano'] : which) as Chain[];
   for (const name of wanted) {
     if (name !== 'evm' && name !== 'cardano') {
       throw new Error(`gen takes 'evm', 'cardano' or nothing (both), got '${name}'`);
     }
   }
-  const path = envFilePath();
+  const path = resolveCredentialsPath();
 
   // Check every requested key before writing any of them, so a refusal leaves
   // the file exactly as it was.
@@ -120,33 +95,28 @@ function cmdGen(which: string[]): void {
     if (hasKeyLine(path, env)) throw new Error(`${path} already has a ${env} — refusing to overwrite it`);
   }
 
-  for (const name of wanted) {
-    if (name === 'evm') {
-      const key = generateEvmKey();
-      appendKey(path, EVM_KEY_ENV, key);
-      console.log(`EVM     ${privateKeyToAccount(key).address}`);
-    } else {
-      const key = generateCardanoKey();
-      appendKey(path, CARDANO_KEY_ENV, key);
-      console.log(`CARDANO ${addressOf(key, network())}`);
-    }
+  for (const key of ensureKeys(wanted, path)) {
+    console.log(`${key.chain === 'evm' ? 'EVM    ' : 'CARDANO'} ${key.address}`);
   }
 }
 
 // ── entry ───────────────────────────────────────────────────────────────────
 
-const USAGE = `usage: npm run wallet -- [gen [evm|cardano]]
+const USAGE = `usage: npm run wallet -- [gen [evm|cardano]]   (or: cardano-defi-mcp wallet [gen ...])
 
   (no args)          start the agent-wallet MCP server on stdio
-  gen                create both burner keys in .env.local, print only their addresses
+  gen                create both burner keys, print only their addresses
   gen evm            create only WALLET_EVM_PRIVATE_KEY
   gen cardano        create only WALLET_CARDANO_PRIVATE_KEY
 
+Keys go to .env.local in a checkout, or ~/.cardano-defi-mcp/credentials.env when
+installed. An agent can do the same thing by calling the setup_wallet tool.
+
 This server holds private keys and spends real funds within the policy caps.`;
 
-async function main(): Promise<number> {
-  loadEnvFiles();
-  const [command, ...rest] = process.argv.slice(2);
+export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
+  bootstrapCli();
+  const [command, ...rest] = argv;
 
   if (command === 'gen') {
     cmdGen(rest);

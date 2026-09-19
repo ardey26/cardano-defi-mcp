@@ -3,9 +3,26 @@
   "version": "0.1.0",
   "description": "Cardano DeFi taxonomy + MCP server: agent rails into Cardano DeFi via BazaarSwap cross-chain routing",
   "main": "index.js",
+  "bin": {
+    "cardano-defi-mcp": "bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "dist-wallet",
+    "taxonomy",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "vitest run",
     "build": "tsc",
+    "build:wallet": "tsc -p tsconfig.wallet.json",
+    "prepare": "npm run build && npm run build:wallet",
+    "cli": "node bin/cli.mjs",
     "dev": "tsx src/server.ts",
     "wallet": "npx tsx src/wallet/server.ts",
     "start": "node dist/server.js",
@@ -24,11 +41,11 @@
     "@types/node": "^26.6.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
-    "viem": "^2.56.8",
     "vitest": "^5.0.1"
   },
   "dependencies": {
     "@indigo-labs/indigo-sdk": "^0.6.0",
+    "viem": "^2.56.8",
     "@lucid-evolution/lucid": "^0.6.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5"

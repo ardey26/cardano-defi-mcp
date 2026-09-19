@@ -37,7 +37,7 @@ export function createMcpServer(): McpServer {
   return server;
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const transport = process.env.MCP_TRANSPORT ?? (process.env.PORT ? 'http' : 'stdio');
 
   if (transport === 'http') {

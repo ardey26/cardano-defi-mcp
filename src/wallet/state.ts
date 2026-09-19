@@ -1,7 +1,8 @@
 /**
  * The daily-spend ledger on disk.
  *
- * `.wallet-state.json` at the repo root (gitignored, chmod 600). It holds only
+ * `.wallet-state.json` at the repo root, or `~/.cardano-defi-mcp/wallet-state.json`
+ * for an installed package (gitignored, chmod 600). It holds only
  * what the policy window needs — timestamp, family, base-unit amount, and the
  * tx hash for a human audit — and never any key material.
  *
@@ -12,14 +13,15 @@
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { PACKAGE_ROOT, resolveStatePath } from './home.js';
 import { pruneEntries, type SpendEntry } from './policy.js';
 
-export const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+export const REPO_ROOT = PACKAGE_ROOT;
 
+/** Repo root in a checkout, ~/.cardano-defi-mcp/wallet-state.json when installed. */
 export function stateFilePath(): string {
-  return process.env.WALLET_STATE_FILE ?? `${REPO_ROOT}.wallet-state.json`;
+  return resolveStatePath();
 }
 
 interface StateFile {

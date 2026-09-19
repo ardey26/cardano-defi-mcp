@@ -4,6 +4,8 @@
  * Env: BLOCKFROST_PROJECT_ID (required), CARDANO_NETWORK ('mainnet' | 'preprod').
  */
 
+import { nextStep } from '../hints.js';
+
 export type CardanoNetwork = 'mainnet' | 'preprod';
 
 export interface AssetAmount {
@@ -34,7 +36,13 @@ export function getNetwork(): CardanoNetwork {
 export function getProjectId(): string {
   const projectId = process.env.BLOCKFROST_PROJECT_ID;
   if (!projectId) {
-    throw new Error('BLOCKFROST_PROJECT_ID required: set it to a Blockfrost project id (https://blockfrost.io)');
+    throw new Error(
+      `BLOCKFROST_PROJECT_ID is not set: ${nextStep(
+        'call configure with blockfrostProjectId — a free key takes a minute at https://blockfrost.io ' +
+          '(create a project on the Cardano mainnet network and copy its project id)',
+        'set it to a Blockfrost project id (https://blockfrost.io)',
+      )}`,
+    );
   }
   return projectId;
 }

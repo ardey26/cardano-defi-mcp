@@ -1,0 +1,16 @@
+{
+  // The local, key-holding build. Separate output directory on purpose:
+  // `npm run build` -> dist/ is the DEPLOYED artifact and must keep having no
+  // signing code path at all, which is the whole security claim of the hosted
+  // server. The CLI's combined mode does need the wallet at runtime, so it is
+  // compiled here instead. rootDir stays `src` so dist-wallet/ mirrors dist/'s
+  // layout — taxonomy/venues is still resolved as ../../taxonomy from a module
+  // one level below the package root.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist-wallet",
+    "declaration": false
+  },
+  "include": ["src/wallet/combined.ts", "src/wallet/server.ts"],
+  "exclude": ["src/**/__tests__"]
+}

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-wallet/
+*.tgz
 
 # built by scripts/build-explorer.mjs; published to Pages by CI, never committed
 docs/

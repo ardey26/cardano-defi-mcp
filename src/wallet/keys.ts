@@ -8,34 +8,38 @@
  * into its own message.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-
 import { CML } from '@lucid-evolution/lucid';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { Hex } from 'viem';
 
-import { REPO_ROOT } from './state.js';
+import { enableOnboardingHints, nextStep } from '../hints.js';
+import { applyCliDefaults, applyEnvFile, homeCredentialsPath, PACKAGE_ROOT } from './home.js';
 
 export const EVM_KEY_ENV = 'WALLET_EVM_PRIVATE_KEY';
 export const CARDANO_KEY_ENV = 'WALLET_CARDANO_PRIVATE_KEY';
 
 export type Net = 'Mainnet' | 'Preprod';
 
-/** Minimal .env reader. Existing process env always wins; .env.local beats .env. */
+/**
+ * Minimal .env reader. Existing process env always wins, then the repo's
+ * .env.local, then .env, then ~/.cardano-defi-mcp/credentials.env — the last of
+ * which is the only one an npx-installed package has.
+ */
 export function loadEnvFiles(): void {
-  for (const name of ['.env.local', '.env']) {
-    const path = `${REPO_ROOT}${name}`;
-    if (!existsSync(path)) continue;
-    for (const line of readFileSync(path, 'utf8').split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eq = trimmed.indexOf('=');
-      if (eq <= 0) continue;
-      const key = trimmed.slice(0, eq).trim();
-      const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
-      if (process.env[key] === undefined) process.env[key] = value;
-    }
-  }
+  const paths = [`${PACKAGE_ROOT}.env.local`, `${PACKAGE_ROOT}.env`, homeCredentialsPath()];
+  if (process.env.ENV_FILE) paths.unshift(process.env.ENV_FILE);
+  for (const path of paths) applyEnvFile(path);
+}
+
+/**
+ * Everything a locally spawned server must do before it starts: read the env
+ * files, fill the gaps from ~/.cardano-defi-mcp/config.json and the hosted
+ * defaults, and switch missing-setting errors to naming the tool that fixes them.
+ */
+export function bootstrapCli(): void {
+  loadEnvFiles();
+  applyCliDefaults();
+  enableOnboardingHints();
 }
 
 /** Belt and braces: a key must never reach a log line or a tool result. */
@@ -68,7 +72,10 @@ export function evmKey(): Hex {
   if (!value) {
     throw new Error(
       `${EVM_KEY_ENV} is not set — this wallet serves no EVM chains. ` +
-        'Add the key to .env.local, or run `npm run wallet -- gen evm` to create a burner.',
+        nextStep(
+          "Call setup_wallet with chains ['evm'] to create a burner key.",
+          'Add the key to .env.local, or run `npm run wallet -- gen evm` to create a burner.',
+        ),
     );
   }
   if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
@@ -82,7 +89,10 @@ export function cardanoKey(): string {
   if (!value) {
     throw new Error(
       `${CARDANO_KEY_ENV} is not set — this wallet serves no Cardano transactions. ` +
-        'Add the key to .env.local, or run `npm run wallet -- gen cardano` to create a burner.',
+        nextStep(
+          "Call setup_wallet with chains ['cardano'] to create a burner key.",
+          'Add the key to .env.local, or run `npm run wallet -- gen cardano` to create a burner.',
+        ),
     );
   }
   return value;
