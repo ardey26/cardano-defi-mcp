@@ -1,0 +1,11 @@
+{
+  "id": "sundaeswap",
+  "name": "SundaeSwap",
+  "category": "dex",
+  "url": "https://sundae.fi",
+  "description": "AMM DEX on Cardano that executes orders in batches through licensed 'Scooper' batchers to reduce on-chain contention. One of the first major DEXes on Cardano.",
+  "assets": ["ADA", "SUNDAE", "DJED", "iUSD", "USDM"],
+  "capabilities": ["swap", "liquidity_provision", "staking"],
+  "integration": "indexed",
+  "notes": "Trading app is at app.sundae.fi; the legacy sundaeswap.finance domain redirects to sundae.fi. Asset list combines ADA, the SUNDAE token, and the stablecoins named on the product pages; it is directional, not a TVL-ranked pool list. V4 docs describe concentrated liquidity and automated routing, but live status was not verified, so those are not reflected in capabilities."
+}

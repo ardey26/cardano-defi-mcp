@@ -1,0 +1,11 @@
+{
+  "id": "indigo",
+  "name": "Indigo Protocol",
+  "category": "cdp",
+  "url": "https://indigoprotocol.io",
+  "description": "Synthetic asset protocol on Cardano where users lock ADA or whitelisted native tokens in a CDP to mint oracle-priced iAssets. Liquidations are absorbed by Liquity-style stability pools.",
+  "assets": ["ADA", "INDY", "iUSD", "iBTC", "iETH", "iJPY", "iEUR"],
+  "capabilities": ["cdp_mint", "stability_pool", "staking"],
+  "integration": "adapter_live",
+  "notes": "iAsset list is from the official docs (docs.indigoprotocol.io iAssets page): iUSD, iBTC, iETH, plus iJPY and iEUR added by DAO governance. iSOL appears in secondary sources but not in the official docs page, so it is excluded. INDY is the fixed-supply governance token; ADA is the primary collateral."
+}

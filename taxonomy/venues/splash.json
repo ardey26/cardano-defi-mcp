@@ -1,0 +1,11 @@
+{
+  "id": "splash",
+  "name": "Splash Protocol",
+  "category": "dex",
+  "url": "https://www.splash.trade",
+  "description": "Cardano DEX combining AMM pools with a virtual limit order book, so a single order can draw on both liquidity sources. SPLASH locks to veSPLASH for a share of protocol fees.",
+  "assets": ["ADA", "SPLASH"],
+  "capabilities": ["swap", "liquidity_provision", "staking"],
+  "integration": "indexed",
+  "notes": "Splash is the Cardano side of the former Spectrum Finance, which split into Splash (Cardano) and ErgoDEX (Ergo); Cardano-side Spectrum pools migrated here. Asset list is restricted to what could be confirmed from official sources (ADA and the SPLASH token) — no authoritative top-pools listing was obtained, so it is incomplete rather than exhaustive."
+}

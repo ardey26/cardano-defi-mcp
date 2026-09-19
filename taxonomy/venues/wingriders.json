@@ -1,0 +1,11 @@
+{
+  "id": "wingriders",
+  "name": "WingRiders",
+  "category": "dex",
+  "url": "https://www.wingriders.com",
+  "description": "Constant-product AMM DEX built on Cardano's eUTxO model, with dedicated stableswap pools for pegged assets. LP positions accrue ADA staking rewards alongside trading fees.",
+  "assets": ["ADA", "WRT", "USDC", "USDT", "DJED", "iUSD"],
+  "capabilities": ["swap", "liquidity_provision", "staking"],
+  "integration": "indexed",
+  "notes": "Asset list is based on the stableswap pairs named on WingRiders' own product pages (USDC, USDT, DJED, iUSD) plus ADA and the WRT governance token. Concentrated-liquidity pools were proposed in a 2023 Catalyst proposal but no evidence was found that they shipped."
+}

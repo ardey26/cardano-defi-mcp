@@ -1,0 +1,11 @@
+{
+  "id": "djed",
+  "name": "Djed",
+  "category": "stablecoin",
+  "url": "https://djed.xyz",
+  "description": "Overcollateralized algorithmic stablecoin co-developed by IOG and operated by COTI, where DJED and the reserve coin SHEN are both backed by a single ADA reserve. Minting is throttled when the reserve ratio leaves its 400-800 percent band.",
+  "assets": ["DJED", "SHEN", "ADA"],
+  "capabilities": ["stablecoin_mint"],
+  "integration": "indexed",
+  "notes": "Asset set is the protocol's own three tokens and is fully determined by the design (stablecoin, reserve coin, base coin) rather than by a listing. Mechanics corroborated across IOG and COTI sources. Circulating DJED supply is small relative to other Cardano stablecoins."
+}

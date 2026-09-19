@@ -1,0 +1,11 @@
+{
+  "id": "dano-finance",
+  "name": "Dano Finance",
+  "category": "lending",
+  "url": "https://dano.finance",
+  "description": "Cardano lending platform offering fixed-rate and floating-rate loans, leverage, and a yield aggregator. Started as Danogo, a bond DEX for trading Optim bonds and ADA staking-rights tokens.",
+  "assets": ["ADA", "DANOGO"],
+  "capabilities": ["supply", "borrow", "staking"],
+  "integration": "indexed",
+  "notes": "Least-documented venue in this index. The Danogo -> Dano Finance rebrand is inferred from danogo.io and docs.danogo.io redirecting to the dano.finance domains; no rebrand announcement was found. No official pool or market list exists, so the asset list is limited to what is confirmed (ADA and the DANOGO token). Roadmap items such as options and synthetics are excluded."
+}

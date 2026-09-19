@@ -1,0 +1,11 @@
+{
+  "id": "realfi",
+  "name": "RealFi",
+  "category": "stablecoin",
+  "url": "https://realfi.co",
+  "description": "IOG-backed stablecoin platform routing on-chain deposits into real-world fixed-income assets such as money market funds and corporate bonds. Depositors mint a base stablecoin and can stake it for a yield-bearing token.",
+  "assets": ["USDrf", "sUSDrf"],
+  "capabilities": ["stablecoin_mint", "staking"],
+  "integration": "indexed",
+  "notes": "Token tickers are taken from the live realfi.co homepage (USDrf / sUSDrf); third-party press consistently calls them USDr / sUSDr, and the discrepancy is unresolved. Not yet on mainnet as of research (testnet 'Pioneer Season'; mainnet stated for 2026-10-01), and the site excludes US/EU/UK/Hong Kong users. Distinct from the defunct realfi.info wallet dashboard and from the Cardano RealFi Consortium, which share the name."
+}

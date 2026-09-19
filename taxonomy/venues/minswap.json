@@ -1,0 +1,11 @@
+{
+  "id": "minswap",
+  "name": "Minswap",
+  "category": "dex",
+  "url": "https://minswap.org",
+  "description": "Constant-product AMM DEX on Cardano with separate stableswap pools for pegged assets. Largest Cardano DEX by TVL.",
+  "assets": ["ADA", "MIN", "DJED", "iUSD", "USDM", "USDC", "SNEK"],
+  "capabilities": ["swap", "liquidity_provision", "staking"],
+  "integration": "indexed",
+  "notes": "Asset list is the most-traded pairs from a GeckoTerminal top-pools-by-TVL snapshot plus the MIN governance token; it is directional, not an exhaustive listing. Minswap also runs a 'Margin' beta whose scope is undocumented, so borrow is not claimed here."
+}

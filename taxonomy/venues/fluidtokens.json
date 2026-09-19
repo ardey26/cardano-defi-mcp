@@ -1,0 +1,11 @@
+{
+  "id": "fluidtokens",
+  "name": "FluidTokens",
+  "category": "lending",
+  "url": "https://fluidtokens.com",
+  "description": "Permissionless peer-to-peer and multi-pool lending on Cardano, taking NFTs and native fungible tokens as collateral. Lenders define their own pool terms, rates, and accepted collateral.",
+  "assets": ["ADA"],
+  "capabilities": ["supply", "borrow"],
+  "integration": "indexed",
+  "notes": "Collateral is lender-defined rather than a fixed market list, so no enumerable asset set exists beyond ADA — any Cardano NFT or native token can be accepted by a pool. FluidTokens also ships BitWeave, a separate lending product that runs natively on Bitcoin and does not touch the Cardano ledger; it is out of scope here."
+}

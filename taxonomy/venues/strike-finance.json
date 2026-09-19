@@ -1,0 +1,11 @@
+{
+  "id": "strike-finance",
+  "name": "Strike Finance",
+  "category": "derivatives",
+  "url": "https://www.strikefinance.org",
+  "description": "On-chain perpetual futures exchange on Cardano. V1 used a GMX-style shared liquidity pool that took the other side of every trade; V2 moves matching to a central limit order book while settlement stays on-chain.",
+  "assets": ["ADA", "SNEK"],
+  "capabilities": ["perps", "liquidity_provision"],
+  "integration": "indexed",
+  "notes": "Market list covers only what was confirmed from Strike's own announcements: ADA perps at launch and SNEK perps added later. A secondary source claims roughly 20 markets including BTC, ETH, SOL, XRP and TradFi products; that was not verified against the app or docs and is excluded. Whether V2 is fully live is also unconfirmed. Not to be confused with the unrelated Ethereum lending protocol at strike.org."
+}

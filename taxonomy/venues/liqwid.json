@@ -1,0 +1,11 @@
+{
+  "id": "liqwid",
+  "name": "Liqwid Finance",
+  "category": "lending",
+  "url": "https://liqwid.finance",
+  "description": "Non-custodial algorithmic money market on Cardano using pooled, Compound-style lending. Suppliers earn interest and borrowers draw liquidity against posted collateral.",
+  "assets": ["ADA", "DJED", "iUSD", "USDM", "USDA", "wanUSDT", "wanUSDC"],
+  "capabilities": ["supply", "borrow", "staking"],
+  "integration": "read_only",
+  "notes": "Market list is reconstructed from Liqwid governance forum threads and secondary sources, not from a live snapshot of app.liqwid.finance — the live GraphQL markets query is the authoritative source. SHEN was onboarded then largely offboarded as collateral by governance vote and is excluded. No BTC market was confirmed."
+}
