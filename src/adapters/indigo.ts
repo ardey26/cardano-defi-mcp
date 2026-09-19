@@ -17,9 +17,13 @@
  *
  * 2. `buildOpenCdp` / `buildCloseCdp` need Indigo's SystemParams. The SDK only
  *    offers `loadSystemParamsFromUrl` / `loadSystemParamsFromFile` and ships no
- *    default; Indigo publishes no documented stable URL for it. So
- *    INDIGO_SYSTEM_PARAMS_URL (or INDIGO_SYSTEM_PARAMS_FILE) is required, and we
- *    fail with an explicit message when it is unset rather than guessing.
+ *    default. Indigo hosts the current mainnet params (undocumented, but used
+ *    by Indigo's own indigo-mcp) at
+ *    https://config.indigoprotocol.io/mainnet/mainnet-system-params-v3.json —
+ *    the filename changes on each protocol upgrade (v1 → v2 → v21 → v3), so
+ *    INDIGO_SYSTEM_PARAMS_URL (or INDIGO_SYSTEM_PARAMS_FILE) stays required,
+ *    and we fail with an explicit message when it is unset rather than pinning
+ *    a URL that goes stale.
  *
  * 3. `buildOpenCdp` mints against ADA collateral only. `openCdp` also takes a
  *    price-oracle input: we resolve it from the collateral-asset datum's
