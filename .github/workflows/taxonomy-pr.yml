@@ -2,6 +2,9 @@ name: Taxonomy PR
 
 on:
   pull_request:
+    # labeled/unlabeled re-run the gate when a maintainer applies the label,
+    # so the check flips green without needing a new push.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - 'taxonomy/venues/**'
 
@@ -9,6 +12,22 @@ permissions:
   contents: read
 
 jobs:
+  # A venue PR merges only with the maintainer-applied 'taxonomy-addition'
+  # label. Contributors cannot label their own fork PRs, so this is the
+  # explicit human sign-off on every registry change; schema validation
+  # below still runs regardless, so contributors get feedback immediately.
+  label-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the taxonomy-addition label
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          case ",$LABELS," in
+            *,taxonomy-addition,*) echo "label present" ;;
+            *) echo "::error::This PR changes taxonomy/venues/ but does not carry the 'taxonomy-addition' label. A maintainer must apply it before merge."; exit 1 ;;
+          esac
+
   validate:
     runs-on: ubuntu-latest
     steps:
