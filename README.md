@@ -115,6 +115,39 @@ implementation deviates from the original design and why.
 stdio, lists its tools, and calls `list_venues`, `get_market_data` and `get_position` against live
 public APIs. No API keys needed; network access is.
 
+## Execute a real swap (advanced)
+
+`examples/execute-swap.ts` is the other half of the story: the **agent-side signer**. The MCP server
+quotes and builds but never signs — something outside it has to close the loop, and this example
+shows what that something looks like. It moves real funds.
+
+> **Use a burner wallet.** Fund it with exactly the amount you intend to trade and nothing more.
+> This is example code for a proof of concept, not a production signer.
+
+```bash
+npm run execute -- gen      # new burner: appends PRIVATE_KEY to .env.local, prints only the address
+npm run execute -- quote    # dry run: warms the API token cache, races quotes (no key needed)
+npm run execute -- run      # quote → build → approve → summary, then STOPS
+npm run execute -- run --yes  # the same, but signs and broadcasts
+```
+
+Configure the pair with flags or env (`.env.local` wins over `.env`):
+`FROM_CHAIN` (1 or 42161), `FROM_TOKEN` (`native` or an ERC-20 address), `AMOUNT` (wei),
+`DEST_ADDRESS` (`addr1…`), plus optional `TO_CHAIN` / `TO_TOKEN` / `SLIPPAGE` / `RPC_URL`.
+
+- **`--yes` is the only way to broadcast.** Without it `run` prints the exact transaction — sender,
+  target, value, calldata size, estimated ADA out, destination address — and exits with
+  `DRY RUN — add --yes to broadcast`.
+- **ERC-20 sources get an exact-amount approval**, only when the current allowance is short, and the
+  script waits for that receipt before it signs the swap.
+- After broadcasting it registers the hash with the API (`POST /status/register`, sending both the
+  `quoteId` and the signed `tracking` token from the execute response) and polls
+  `GET /status/{txHash}` every 15 s for up to 10 minutes, printing each transition until
+  `complete` / `failed` / `untracked`. A failed swap exits non-zero.
+- **The private key never touches the MCP server.** It is read by the example only, and the server
+  is spawned with `PRIVATE_KEY` stripped from its environment. The server still has no signing code
+  path — `viem` is a devDependency used by this example alone, never by `src/`.
+
 ## License
 
 Apache-2.0

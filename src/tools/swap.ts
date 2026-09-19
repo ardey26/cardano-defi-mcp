@@ -16,9 +16,9 @@ export function registerSwapTools(server: McpServer): void {
         'The race can take up to ~25 seconds.',
       inputSchema: {
         fromChain: z.string().min(1).describe('Source chain id, e.g. "1" for Ethereum'),
-        toChain: z.string().min(1).describe('Destination chain id, e.g. "1815" for Cardano'),
+        toChain: z.string().min(1).describe('Destination chain id, e.g. "CARDANO" for Cardano'),
         fromToken: z.string().min(1).describe('Source token address (or native-token sentinel)'),
-        toToken: z.string().min(1).describe('Destination token address or unit, e.g. "lovelace"'),
+        toToken: z.string().min(1).describe('Destination token address; native ADA on "CARDANO" is the zero address'),
         amount: z.string().min(1).describe('Amount to send, in the source token\'s smallest unit'),
         userAddress: z.string().min(1).describe('Sender address on the source chain'),
         slippage: z.string().optional().describe('Slippage tolerance in percent, e.g. "0.5"'),

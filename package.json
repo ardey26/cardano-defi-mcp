@@ -9,7 +9,8 @@
     "dev": "tsx src/server.ts",
     "start": "node dist/server.js",
     "build:explorer": "node scripts/build-explorer.mjs",
-    "demo": "npx tsx examples/reference-agent.ts"
+    "demo": "npx tsx examples/reference-agent.ts",
+    "execute": "npx tsx examples/execute-swap.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "@types/node": "^26.6.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
+    "viem": "^2.56.8",
     "vitest": "^5.0.1"
   },
   "dependencies": {
