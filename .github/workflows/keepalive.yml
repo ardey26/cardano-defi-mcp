@@ -1,0 +1,19 @@
+name: Keepalive
+
+# Free-tier Render services sleep after idle; a cold start chain (MCP wakes,
+# then races a sleeping API) blows the quote window for the first caller.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping both services
+        run: |
+          curl -s -m 30 -o /dev/null -w "mcp: %{http_code}\n" https://cardano-defi-mcp.onrender.com/health || true
+          curl -s -m 30 -o /dev/null -w "api: %{http_code}\n" https://bazaar-web.onrender.com/health || true

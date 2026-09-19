@@ -65,7 +65,9 @@ export interface SseEvent {
   data: string;
 }
 
-const RACE_TIMEOUT_MS = 25_000;
+// Must exceed the Bazaar API's own 25 s per-provider window, or we abort at the
+// exact moment a slow provider would have delivered.
+const RACE_TIMEOUT_MS = 35_000;
 
 export function getBaseUrl(): string {
   return (process.env.BAZAAR_API_URL ?? 'http://localhost:3001').replace(/\/+$/, '');
