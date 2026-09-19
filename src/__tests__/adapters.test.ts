@@ -12,7 +12,11 @@ import { credentialToAddress, paymentCredentialOf } from '@lucid-evolution/lucid
 
 import { getBalance } from '../adapters/blockfrost.js';
 import { getMarkets, getPositions as getLiqwidPositions } from '../adapters/liqwid.js';
-import { buildOpenCdp, getPositions as getIndigoPositions } from '../adapters/indigo.js';
+import {
+  buildOpenCdp,
+  fetchPythPriceSource,
+  getPositions as getIndigoPositions,
+} from '../adapters/indigo.js';
 import { getQuote, parseSseBuffer } from '../adapters/swap.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -565,5 +569,64 @@ describe('indigo.buildOpenCdp', () => {
     await expect(
       buildOpenCdp({ ...base, collateralLovelace: 1n, mintAmount: 0n }),
     ).rejects.toThrow(/mintAmount must be greater than zero/);
+  });
+});
+
+// The Pyth (DeferredValidation) price inputs of buildOpenCdp. The rest of that
+// branch is live chain state, so only the two analytics endpoints are covered here.
+describe('indigo.fetchPythPriceSource', () => {
+  const PAYLOAD = 'b9011a82' + 'ab'.repeat(60);
+  const STATE = { outputHash: 'dd'.repeat(32), outputIndex: 0 };
+
+  function pythFetchMock(priceStatus = 200) {
+    return vi.fn(async (url: string) =>
+      String(url).includes('/pyth-state/utxo')
+        ? jsonResponse(STATE)
+        : priceStatus === 200
+          ? jsonResponse({
+              price: '4.399807517220',
+              expiration: Date.now() + 3_600_000,
+              timestamp: Math.floor(Date.now() / 1000),
+              pythPayload: PAYLOAD,
+            })
+          : new Response('Not Found', { status: priceStatus }),
+    );
+  }
+
+  it('fetches the signed price and the Pyth state out-ref from INDIGO_API_URL', async () => {
+    process.env.INDIGO_API_URL = 'https://indigo.internal/';
+    const fetchMock = pythFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPythPriceSource('iUSD')).resolves.toEqual({
+      pythMessage: PAYLOAD,
+      pythStateOref: { txHash: STATE.outputHash, outputIndex: 0 },
+    });
+
+    expect(fetchMock.mock.calls.map((c) => String(c[0])).sort()).toEqual([
+      'https://indigo.internal/api/v3/assets/iUSD/ada/price',
+      'https://indigo.internal/api/v3/pyth-state/utxo',
+    ]);
+  });
+
+  it('surfaces a 404 from the price endpoint as one clear message', async () => {
+    vi.stubGlobal('fetch', pythFetchMock(404));
+
+    await expect(fetchPythPriceSource('iUSD')).rejects.toThrow(
+      /Indigo API 404 for \/api\/v3\/assets\/iUSD\/ada\/price/,
+    );
+  });
+
+  it('refuses a price older than the 280s validator window', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        String(url).includes('/pyth-state/utxo')
+          ? jsonResponse(STATE)
+          : jsonResponse({ timestamp: Math.floor(Date.now() / 1000) - 400, pythPayload: PAYLOAD }),
+      ),
+    );
+
+    await expect(fetchPythPriceSource('iUSD')).rejects.toThrow(/the validator rejects anything past 280s/);
   });
 });

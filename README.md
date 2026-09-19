@@ -75,11 +75,14 @@ All tools return `{ content: [{ type: 'text', text: <pretty JSON> }] }`; failure
   off-chain batcher with no documented public transaction-building API or SDK. Building those
   transactions would mean reverse-engineering an undocumented batcher contract, which is not
   something a PoC should ship. Rates and loan positions are read live from the public GraphQL API.
-- **Indigo's Pyth-oracle path is not implemented.** `open_cdp` resolves the collateral price oracle
-  from the collateral asset's datum. `OracleNft` and `Delisted` work. Indigo's newer
-  `DeferredValidation` path needs a signed Pyth Lazer price message, which requires a Pyth Lazer
-  access token this server has no business holding — that case throws a clear
-  `NotImplementedError` instead of failing obscurely.
+- **Indigo's Pyth-oracle path leans on Indigo's analytics API.** `open_cdp` resolves the collateral
+  price oracle from the collateral asset's datum. `OracleNft` and `Delisted` are handled directly.
+  Indigo's newer `DeferredValidation` path needs a *signed* Pyth Lazer price message, which needs a
+  Pyth Lazer access token this server has no business holding — so it proxies the signed message
+  and the Pyth state UTxO from Indigo's public, unauthenticated analytics API
+  (`/api/v3/assets/{iasset}/ada/price`, `/api/v3/pyth-state/utxo`), the same route Indigo's own
+  `indigo-mcp` takes. Those messages expire 280 s after their timestamp, so the transaction must be
+  signed and submitted promptly after it is built.
 - **Indigo needs `INDIGO_SYSTEM_PARAMS_URL`.** The Indigo SDK ships no default SystemParams and
   Indigo publishes no documented stable URL for the file, so the tools refuse to guess.
 - **Indigo position reads use the analytics API, not the SDK.** The SDK has no "find CDPs by owner"

@@ -27,10 +27,19 @@
  *
  * 3. `buildOpenCdp` mints against ADA collateral only. `openCdp` also takes a
  *    price-oracle input: we resolve it from the collateral-asset datum's
- *    `priceInfo`. For `OracleNft` and `Delisted` this works. For
- *    `DeferredValidation` (Indigo's Pyth path) the tx additionally needs a signed
- *    Pyth Lazer price message, which requires a Pyth Lazer access token this
- *    server has no business holding — that case throws NotImplementedError.
+ *    `priceInfo`. `OracleNft` reads the oracle UTxO by its NFT; `Delisted` needs
+ *    no oracle at all. `DeferredValidation` (Indigo's Pyth path) additionally
+ *    needs the signed Pyth Lazer price message and the Pyth state UTxO — this
+ *    server holds no Pyth Lazer credential and signs nothing, so it proxies both
+ *    from Indigo's public, unauthenticated analytics API:
+ *      GET {INDIGO_API_URL}/api/v3/assets/{iasset}/ada/price -> { pythPayload, timestamp, ... }
+ *      GET {INDIGO_API_URL}/api/v3/pyth-state/utxo           -> { outputHash, outputIndex }
+ *    Indigo's own indigo-mcp (IndigoProtocol/indigo-mcp, src/utils/pyth.ts) takes
+ *    exactly this route. The on-chain validator rejects a tx whose validity upper
+ *    bound is more than 280 s past the price timestamp, so the payload is fetched
+ *    last, immediately before building, and rechecked against PYTH_MAX_DELAY_MS.
+ *    The validity window itself is set by the SDK (`attachOracle` pins
+ *    validFrom = price timestamp, validTo = +280 s); we do not override it.
  *
  * 4. Param names follow DESIGN.md (`{ address, iasset, collateralLovelace,
  *    mintAmount }`); `buildCloseCdp({ address, cdpOutRef })` takes the CDP out-ref
@@ -55,13 +64,6 @@ import type { CollateralAssetOutput, SystemParams } from '@indigo-labs/indigo-sd
 
 import { getBaseUrl as getBlockfrostBaseUrl, getNetwork, getProjectId } from './blockfrost.js';
 import type { CardanoNetwork } from './blockfrost.js';
-
-export class NotImplementedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NotImplementedError';
-  }
-}
 
 export interface IndigoPosition {
   cdpOutRef: OutRef;
@@ -91,6 +93,21 @@ export interface CloseCdpParams {
 }
 
 const DEFAULT_INDIGO_API_URL = 'https://analytics.indigoprotocol.io';
+/** Indigo's ADA collateral is spelled lowercase in the analytics price path. */
+const ADA_COLLATERAL_SLUG = 'ada';
+/** The on-chain Pyth feed validator rejects a validity upper bound later than this. */
+const PYTH_MAX_DELAY_MS = 280_000;
+
+async function indigoApiGet<T>(path: string): Promise<T> {
+  const base = (process.env.INDIGO_API_URL ?? DEFAULT_INDIGO_API_URL).replace(/\/+$/, '');
+
+  const res = await fetch(`${base}${path}`, { headers: { accept: 'application/json' } });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Indigo API ${res.status} for ${path}: ${body.slice(0, 200) || res.statusText}`);
+  }
+  return (await res.json()) as T;
+}
 
 // ── reads ────────────────────────────────────────────────────────────────────
 
@@ -106,15 +123,7 @@ interface AnalyticsCdp {
 
 export async function getPositions(address: string): Promise<IndigoPosition[]> {
   const paymentKeyHash = paymentCredentialOf(address).hash;
-  const base = (process.env.INDIGO_API_URL ?? DEFAULT_INDIGO_API_URL).replace(/\/+$/, '');
-
-  const res = await fetch(`${base}/api/cdps`, { headers: { accept: 'application/json' } });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Indigo API ${res.status} for /api/cdps: ${body.slice(0, 200) || res.statusText}`);
-  }
-
-  const cdps = (await res.json()) as AnalyticsCdp[];
+  const cdps = await indigoApiGet<AnalyticsCdp[]>('/api/cdps');
 
   return cdps
     .filter((c) => c.owner === paymentKeyHash)
@@ -162,27 +171,73 @@ function toOutRef(utxo: UTxO): OutRef {
 }
 
 /**
- * The out-ref of the price oracle the CDP endpoints must reference, or `undefined`
- * when the collateral asset is delisted (its price is fixed in the datum).
+ * The price inputs the CDP endpoints must reference. Exactly one branch is populated:
+ * an on-chain oracle out-ref (`OracleNft`), a Pyth message plus state out-ref
+ * (`DeferredValidation`), or nothing at all (`Delisted` — price fixed in the datum).
  */
-async function resolvePriceOracleOref(
+interface PriceSource {
+  priceOracleOref?: OutRef;
+  pythMessage?: string;
+  pythStateOref?: OutRef;
+}
+
+interface AnalyticsPythPrice {
+  price?: string;
+  expiration?: number;
+  /** Seconds since epoch. */
+  timestamp?: number;
+  pythPayload?: string;
+  message?: string;
+}
+
+/**
+ * Proxy Indigo's public analytics API for the signed Pyth message + Pyth state UTxO.
+ * Exported so the endpoint contract can be unit-tested without a live chain.
+ */
+export async function fetchPythPriceSource(iasset: string): Promise<PriceSource> {
+  const pricePath = `/api/v3/assets/${encodeURIComponent(iasset)}/${ADA_COLLATERAL_SLUG}/price`;
+
+  const [price, state] = await Promise.all([
+    indigoApiGet<AnalyticsPythPrice>(pricePath),
+    indigoApiGet<{ outputHash: string; outputIndex: number }>('/api/v3/pyth-state/utxo'),
+  ]);
+
+  if (!price.pythPayload || typeof price.timestamp !== 'number') {
+    throw new Error(
+      `Indigo analytics returned no Pyth price for ${iasset}/${ADA_COLLATERAL_SLUG}` +
+        (price.message ? `: ${price.message}` : '')
+    );
+  }
+
+  const ageMs = Date.now() - price.timestamp * 1000;
+  if (ageMs > PYTH_MAX_DELAY_MS) {
+    throw new Error(
+      `Indigo's Pyth price for ${iasset} is ${Math.round(ageMs / 1000)}s old; the validator rejects ` +
+        `anything past ${PYTH_MAX_DELAY_MS / 1000}s. Retry in a moment.`
+    );
+  }
+
+  return {
+    pythMessage: price.pythPayload,
+    pythStateOref: { txHash: state.outputHash, outputIndex: state.outputIndex },
+  };
+}
+
+async function resolvePriceSource(
   lucid: LucidEvolution,
+  iasset: string,
   collateral: CollateralAssetOutput
-): Promise<OutRef | undefined> {
+): Promise<PriceSource> {
   const priceInfo = collateral.datum.priceInfo;
 
-  if ('Delisted' in priceInfo) return undefined;
+  if ('Delisted' in priceInfo) return {};
 
   if ('OracleNft' in priceInfo) {
     const unit = OffchainCommon.assetClassToUnit(priceInfo.OracleNft);
-    return toOutRef(await lucid.utxoByUnit(unit));
+    return { priceOracleOref: toOutRef(await lucid.utxoByUnit(unit)) };
   }
 
-  throw new NotImplementedError(
-    'This Indigo market prices collateral through Pyth (DeferredValidation). Building that ' +
-      'transaction needs a signed Pyth Lazer price message, which requires a Pyth Lazer access ' +
-      'token; this server holds no credentials. Use a market with an on-chain OracleNft instead.'
-  );
+  return fetchPythPriceSource(iasset);
 }
 
 /** Complete without signing: full tx CBOR with an empty witness set (CIP-30 `signTx` input). */
@@ -213,10 +268,10 @@ export async function buildOpenCdp(params: OpenCdpParams): Promise<UnsignedTx> {
     findRandomCdpCreator(lucid, sysParams),
   ]);
 
-  const [priceOracleOref, interestOracle] = await Promise.all([
-    resolvePriceOracleOref(lucid, collateral),
-    findInterestOracle(lucid, collateral.datum.interestOracleNft),
-  ]);
+  const interestOracle = await findInterestOracle(lucid, collateral.datum.interestOracleNft);
+
+  // Last, immediately before building: a Pyth message is only good for 280s.
+  const price = await resolvePriceSource(lucid, params.iasset, collateral);
 
   const tx = await openCdp(
     collateralLovelace,
@@ -225,10 +280,12 @@ export async function buildOpenCdp(params: OpenCdpParams): Promise<UnsignedTx> {
     toOutRef(cdpCreator),
     toOutRef(iasset.utxo),
     toOutRef(collateral.utxo),
-    priceOracleOref,
+    price.priceOracleOref,
     toOutRef(interestOracle),
     undefined, // treasuryOref: undefined = direct treasury payment
-    lucid
+    lucid,
+    price.pythMessage,
+    price.pythStateOref
   );
 
   return completeUnsigned(

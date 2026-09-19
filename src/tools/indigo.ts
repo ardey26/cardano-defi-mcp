@@ -16,6 +16,8 @@ export function registerIndigoTools(server: McpServer): void {
       description:
         'Build a transaction that opens an Indigo CDP: lock ADA collateral and mint an iAsset (e.g. iUSD). ' +
         'Returns an UNSIGNED transaction as CBOR hex with an empty witness set, plus a human-readable summary. ' +
+        'Pyth-priced markets (e.g. iUSD): the tx embeds a signed price with a ~280-second validity window, so ' +
+        'sign and submit promptly after building — a paused/stale tx fails on-chain validation; rebuild instead. ' +
         'This server never signs, never submits and never holds keys or funds — the agent signs it (CIP-30 ' +
         '`signTx`) and submits it. ADA collateral only; requires BLOCKFROST_PROJECT_ID and ' +
         'INDIGO_SYSTEM_PARAMS_URL.',
