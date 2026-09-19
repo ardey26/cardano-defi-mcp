@@ -12,7 +12,7 @@ const TEMPLATE = join(ROOT, "scripts", "explorer.template.html");
 const OUT = join(ROOT, "docs", "index.html");
 
 // Placeholder until the repo is published.
-const REPO_URL = "https://github.com/bazaarswap/cardano-defi-mcp";
+const REPO_URL = "https://github.com/ardey26/cardano-defi-mcp";
 
 // Display order for the register; unknown categories sort last, alphabetically.
 const CATEGORY_ORDER = ["dex", "lending", "cdp", "stablecoin", "derivatives"];
