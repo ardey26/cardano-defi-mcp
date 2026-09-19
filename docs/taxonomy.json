@@ -1,0 +1,222 @@
+{
+  "schema": "cardano-defi-taxonomy/v1",
+  "generatedFrom": "https://github.com/bazaarswap/cardano-defi-mcp",
+  "count": 11,
+  "venues": [
+    {
+      "id": "minswap",
+      "name": "Minswap",
+      "category": "dex",
+      "url": "https://minswap.org",
+      "description": "Constant-product AMM DEX on Cardano with separate stableswap pools for pegged assets. Largest Cardano DEX by TVL.",
+      "assets": [
+        "ADA",
+        "MIN",
+        "DJED",
+        "iUSD",
+        "USDM",
+        "USDC",
+        "SNEK"
+      ],
+      "capabilities": [
+        "swap",
+        "liquidity_provision",
+        "staking"
+      ],
+      "integration": "indexed",
+      "notes": "Asset list is the most-traded pairs from a GeckoTerminal top-pools-by-TVL snapshot plus the MIN governance token; it is directional, not an exhaustive listing. Minswap also runs a 'Margin' beta whose scope is undocumented, so borrow is not claimed here."
+    },
+    {
+      "id": "splash",
+      "name": "Splash Protocol",
+      "category": "dex",
+      "url": "https://www.splash.trade",
+      "description": "Cardano DEX combining AMM pools with a virtual limit order book, so a single order can draw on both liquidity sources. SPLASH locks to veSPLASH for a share of protocol fees.",
+      "assets": [
+        "ADA",
+        "SPLASH"
+      ],
+      "capabilities": [
+        "swap",
+        "liquidity_provision",
+        "staking"
+      ],
+      "integration": "indexed",
+      "notes": "Splash is the Cardano side of the former Spectrum Finance, which split into Splash (Cardano) and ErgoDEX (Ergo); Cardano-side Spectrum pools migrated here. Asset list is restricted to what could be confirmed from official sources (ADA and the SPLASH token) — no authoritative top-pools listing was obtained, so it is incomplete rather than exhaustive."
+    },
+    {
+      "id": "sundaeswap",
+      "name": "SundaeSwap",
+      "category": "dex",
+      "url": "https://sundae.fi",
+      "description": "AMM DEX on Cardano that executes orders in batches through licensed 'Scooper' batchers to reduce on-chain contention. One of the first major DEXes on Cardano.",
+      "assets": [
+        "ADA",
+        "SUNDAE",
+        "DJED",
+        "iUSD",
+        "USDM"
+      ],
+      "capabilities": [
+        "swap",
+        "liquidity_provision",
+        "staking"
+      ],
+      "integration": "indexed",
+      "notes": "Trading app is at app.sundae.fi; the legacy sundaeswap.finance domain redirects to sundae.fi. Asset list combines ADA, the SUNDAE token, and the stablecoins named on the product pages; it is directional, not a TVL-ranked pool list. V4 docs describe concentrated liquidity and automated routing, but live status was not verified, so those are not reflected in capabilities."
+    },
+    {
+      "id": "wingriders",
+      "name": "WingRiders",
+      "category": "dex",
+      "url": "https://www.wingriders.com",
+      "description": "Constant-product AMM DEX built on Cardano's eUTxO model, with dedicated stableswap pools for pegged assets. LP positions accrue ADA staking rewards alongside trading fees.",
+      "assets": [
+        "ADA",
+        "WRT",
+        "USDC",
+        "USDT",
+        "DJED",
+        "iUSD"
+      ],
+      "capabilities": [
+        "swap",
+        "liquidity_provision",
+        "staking"
+      ],
+      "integration": "indexed",
+      "notes": "Asset list is based on the stableswap pairs named on WingRiders' own product pages (USDC, USDT, DJED, iUSD) plus ADA and the WRT governance token. Concentrated-liquidity pools were proposed in a 2023 Catalyst proposal but no evidence was found that they shipped."
+    },
+    {
+      "id": "dano-finance",
+      "name": "Dano Finance",
+      "category": "lending",
+      "url": "https://dano.finance",
+      "description": "Cardano lending platform offering fixed-rate and floating-rate loans, leverage, and a yield aggregator. Started as Danogo, a bond DEX for trading Optim bonds and ADA staking-rights tokens.",
+      "assets": [
+        "ADA",
+        "DANOGO"
+      ],
+      "capabilities": [
+        "supply",
+        "borrow",
+        "staking"
+      ],
+      "integration": "indexed",
+      "notes": "Least-documented venue in this index. The Danogo -> Dano Finance rebrand is inferred from danogo.io and docs.danogo.io redirecting to the dano.finance domains; no rebrand announcement was found. No official pool or market list exists, so the asset list is limited to what is confirmed (ADA and the DANOGO token). Roadmap items such as options and synthetics are excluded."
+    },
+    {
+      "id": "fluidtokens",
+      "name": "FluidTokens",
+      "category": "lending",
+      "url": "https://fluidtokens.com",
+      "description": "Permissionless peer-to-peer and multi-pool lending on Cardano, taking NFTs and native fungible tokens as collateral. Lenders define their own pool terms, rates, and accepted collateral.",
+      "assets": [
+        "ADA"
+      ],
+      "capabilities": [
+        "supply",
+        "borrow"
+      ],
+      "integration": "indexed",
+      "notes": "Collateral is lender-defined rather than a fixed market list, so no enumerable asset set exists beyond ADA — any Cardano NFT or native token can be accepted by a pool. FluidTokens also ships BitWeave, a separate lending product that runs natively on Bitcoin and does not touch the Cardano ledger; it is out of scope here."
+    },
+    {
+      "id": "liqwid",
+      "name": "Liqwid Finance",
+      "category": "lending",
+      "url": "https://liqwid.finance",
+      "description": "Non-custodial algorithmic money market on Cardano using pooled, Compound-style lending. Suppliers earn interest and borrowers draw liquidity against posted collateral.",
+      "assets": [
+        "ADA",
+        "DJED",
+        "iUSD",
+        "USDM",
+        "USDA",
+        "wanUSDT",
+        "wanUSDC"
+      ],
+      "capabilities": [
+        "supply",
+        "borrow",
+        "staking"
+      ],
+      "integration": "read_only",
+      "notes": "Market list is reconstructed from Liqwid governance forum threads and secondary sources, not from a live snapshot of app.liqwid.finance — the live GraphQL markets query is the authoritative source. SHEN was onboarded then largely offboarded as collateral by governance vote and is excluded. No BTC market was confirmed."
+    },
+    {
+      "id": "indigo",
+      "name": "Indigo Protocol",
+      "category": "cdp",
+      "url": "https://indigoprotocol.io",
+      "description": "Synthetic asset protocol on Cardano where users lock ADA or whitelisted native tokens in a CDP to mint oracle-priced iAssets. Liquidations are absorbed by Liquity-style stability pools.",
+      "assets": [
+        "ADA",
+        "INDY",
+        "iUSD",
+        "iBTC",
+        "iETH",
+        "iJPY",
+        "iEUR"
+      ],
+      "capabilities": [
+        "cdp_mint",
+        "stability_pool",
+        "staking"
+      ],
+      "integration": "adapter_live",
+      "notes": "iAsset list is from the official docs (docs.indigoprotocol.io iAssets page): iUSD, iBTC, iETH, plus iJPY and iEUR added by DAO governance. iSOL appears in secondary sources but not in the official docs page, so it is excluded. INDY is the fixed-supply governance token; ADA is the primary collateral."
+    },
+    {
+      "id": "djed",
+      "name": "Djed",
+      "category": "stablecoin",
+      "url": "https://djed.xyz",
+      "description": "Overcollateralized algorithmic stablecoin co-developed by IOG and operated by COTI, where DJED and the reserve coin SHEN are both backed by a single ADA reserve. Minting is throttled when the reserve ratio leaves its 400-800 percent band.",
+      "assets": [
+        "DJED",
+        "SHEN",
+        "ADA"
+      ],
+      "capabilities": [
+        "stablecoin_mint"
+      ],
+      "integration": "indexed",
+      "notes": "Asset set is the protocol's own three tokens and is fully determined by the design (stablecoin, reserve coin, base coin) rather than by a listing. Mechanics corroborated across IOG and COTI sources. Circulating DJED supply is small relative to other Cardano stablecoins."
+    },
+    {
+      "id": "realfi",
+      "name": "RealFi",
+      "category": "stablecoin",
+      "url": "https://realfi.co",
+      "description": "IOG-backed stablecoin platform routing on-chain deposits into real-world fixed-income assets such as money market funds and corporate bonds. Depositors mint a base stablecoin and can stake it for a yield-bearing token.",
+      "assets": [
+        "USDrf",
+        "sUSDrf"
+      ],
+      "capabilities": [
+        "stablecoin_mint",
+        "staking"
+      ],
+      "integration": "indexed",
+      "notes": "Token tickers are taken from the live realfi.co homepage (USDrf / sUSDrf); third-party press consistently calls them USDr / sUSDr, and the discrepancy is unresolved. Not yet on mainnet as of research (testnet 'Pioneer Season'; mainnet stated for 2026-10-01), and the site excludes US/EU/UK/Hong Kong users. Distinct from the defunct realfi.info wallet dashboard and from the Cardano RealFi Consortium, which share the name."
+    },
+    {
+      "id": "strike-finance",
+      "name": "Strike Finance",
+      "category": "derivatives",
+      "url": "https://www.strikefinance.org",
+      "description": "On-chain perpetual futures exchange on Cardano. V1 used a GMX-style shared liquidity pool that took the other side of every trade; V2 moves matching to a central limit order book while settlement stays on-chain.",
+      "assets": [
+        "ADA",
+        "SNEK"
+      ],
+      "capabilities": [
+        "perps",
+        "liquidity_provision"
+      ],
+      "integration": "indexed",
+      "notes": "Market list covers only what was confirmed from Strike's own announcements: ADA perps at launch and SNEK perps added later. A secondary source claims roughly 20 markets including BTC, ETH, SOL, XRP and TradFi products; that was not verified against the app or docs and is excluded. Whether V2 is fully live is also unconfirmed. Not to be confused with the unrelated Ethereum lending protocol at strike.org."
+    }
+  ]
+}

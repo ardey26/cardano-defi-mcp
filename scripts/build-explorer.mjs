@@ -45,5 +45,15 @@ if (leftover) throw new Error(`Unfilled template placeholders: ${leftover.join("
 await mkdir(dirname(OUT), { recursive: true });
 await writeFile(OUT, html);
 
+// Machine-consumable bundle published next to the page: anyone can consume the
+// index over HTTP without cloning the repo or running the MCP server.
+const bundle = JSON.stringify(
+  { schema: "cardano-defi-taxonomy/v1", generatedFrom: REPO_URL, count: venues.length, venues },
+  null,
+  2
+);
+await writeFile(join(ROOT, "docs", "taxonomy.json"), bundle);
+
+console.log(`docs/taxonomy.json — ${venues.length} venues, ${bundle.length} bytes`);
 console.log(`docs/index.html — ${venues.length} venues, ${html.length} bytes`);
 for (const v of venues) console.log(`  ${v.integration.padEnd(12)} ${v.category.padEnd(12)} ${v.id}`);
