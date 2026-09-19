@@ -12,6 +12,7 @@
  *   npm run execute:cdp -- run --yes  # open → confirm → close → confirm → sweep (REAL FUNDS)
  *   npm run execute:cdp -- close --txhash <h> --index <i>   # recovery: step 5 alone
  *   npm run execute:cdp -- sweep                            # recovery: step 6 alone
+ *   npm run execute:cdp -- buy-iusd [--yes]   # top up iUSD on Minswap so close_cdp can burn an exact debt
  *
  * `run --yes` never pauses. `open_cdp` embeds a signed Pyth price whose validity
  * window is ~280 s, so the built transaction is signed and submitted immediately
@@ -25,6 +26,7 @@
  *   COLLATERAL_LOVELACE=15000000   MINT_AMOUNT=1000000 (iUSD, 6 decimals)
  *   SWEEP_TO=addr1…           where everything goes at the end
  *   ENV_FILE=…                which file `gen` appends the key to
+ *   SPEND_LOVELACE=1000000    MIN_IUSD_OUT=20000 — `buy-iusd` only
  *
  * USE A BURNER WALLET. Fund it with exactly what this loop needs and nothing more.
  */
@@ -34,8 +36,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync, chmodSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { Blockfrost, CML, Lucid, generatePrivateKey, paymentCredentialOf } from '@lucid-evolution/lucid';
-import type { LucidEvolution, OutRef } from '@lucid-evolution/lucid';
+import { Blockfrost, CML, Constr, Data, Lucid, generatePrivateKey, paymentCredentialOf } from '@lucid-evolution/lucid';
+import type { LucidEvolution, OutRef, TxSignBuilder } from '@lucid-evolution/lucid';
 import {
   fromSystemParamsAssetLucid,
   loadSystemParamsFromFile,
@@ -52,6 +54,37 @@ const DEFAULT_SWEEP_TO =
   'addr1qx6wnfsgzlru7jp9m0yrep8g8uqzlarnyydwz4x5sy7j8d80wm86jx67p5t3g027hwrmtncy3k3r4eauj6w2jsndvwfsh3kpmj';
 /** Fees + the Indigo protocol fee + the min-ADA of the change output. */
 const HEADROOM_LOVELACE = 4_000_000n;
+
+/**
+ * Minswap AMM V2 on mainnet — everything `buy-iusd` needs to place a market order.
+ *
+ * The official @minswap/sdk (0.5.0) is pinned to @spacebudz/lucid, an ESM+WASM
+ * fork that needs its own npm registry entry and a node flag, so it cannot build
+ * transactions next to the @lucid-evolution/lucid this repo already signs with.
+ * Only its *constants and datum shape* are reused, copied verbatim from that
+ * version and re-encoded below with lucid-evolution's `Constr`.
+ *
+ * LP_UNIT identifies the ADA/iUSD pool: sha3-256(sha3-256("") ‖ sha3-256(iUSD unit)),
+ * which is Minswap's documented `PoolV2.computeLPAssetName` and matches the token
+ * sitting in the live pool UTxO. ADA is assetA and iUSD assetB, so buying iUSD is
+ * direction A_TO_B.
+ */
+const MINSWAP_ORDER_ADDRESS = 'addr1w8p79rpkcdz8x9d6tft0x0dx5mwuzac2sa4gm8cvkw5hcnqst2ctf';
+const MINSWAP_POOL_ADDRESS =
+  'addr1z84q0denmyep98ph3tmzwsmw0j7zau9ljmsqx6a4rvaau66j2c79gy9l76sdg0xwhd7r0c0kna0tycz4y5s6mlenh8pq777e2a';
+const MINSWAP_LP_POLICY = 'f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c';
+const MINSWAP_LP_NAME = '452089abb5bf8cc59b678a2cd7b9ee952346c6c0aa1cf27df324310a70d02fc3';
+/** BATCHER_FEE_DEX_V2[SWAP_EXACT_IN] and FIXED_DEPOSIT_ADA. The deposit comes back with the fill. */
+const MINSWAP_BATCHER_FEE = 2_000_000n;
+const MINSWAP_DEPOSIT_ADA = 2_000_000n;
+const IUSD_UNIT = 'f66d78b4a3cb3d37afa0ec36461e51ecbde00f26c8f0a68f94b6988069555344';
+
+const DEFAULT_SPEND_LOVELACE = 1_000_000n;
+const DEFAULT_MIN_IUSD_OUT = 20_000n;
+/** The order tx fee plus the min-ADA of the change output, which still carries the iUSD. */
+const BUY_HEADROOM_LOVELACE = 2_000_000n;
+const BUY_INTERVAL_MS = 30_000;
+const BUY_TIMEOUT_MS = 15 * 60_000;
 
 const CONFIRM_INTERVAL_MS = 20_000;
 const CONFIRM_TIMEOUT_MS = 10 * 60_000;
@@ -516,6 +549,128 @@ async function sweepStep(lucid: LucidEvolution, address: string): Promise<void> 
   printBalance('sweep target', await getBalance(destination));
 }
 
+// ── Minswap V2 market order (ADA → iUSD) ────────────────────────────────────
+
+/**
+ * The SwapExactIn order datum, field for field as @minswap/sdk@0.5.0 encodes it
+ * in `OrderV2.Datum.toPlutusData` and `OrderV2.Step.toPlutusData`:
+ *
+ *   Constr 0 [ canceller, refundReceiver, refundReceiverDatum, successReceiver,
+ *              successReceiverDatum, lpAsset, step, maxBatcherFee, expiry ]
+ *   step = Constr 0 [ direction, swapAmount, minimumReceived, killable ]
+ *
+ * The burner is an enterprise address, so its plutus Address is
+ * `Constr 0 [Constr 0 [pkh], Constr 1 []]` — a key credential and no stake part.
+ * `killable` is PENDING_ON_FAILED: if the pool ever moved far enough to miss the
+ * minimum the batcher retries instead of refunding, and this order exists to be
+ * filled, not to be a price bet.
+ */
+function minswapOrderDatum(ownerKeyHash: string, spend: bigint, minOut: bigint): string {
+  const owner = new Constr(0, [new Constr(0, [ownerKeyHash]), new Constr(1, [])]);
+  const noDatum = new Constr(0, []);
+  return Data.to(
+    new Constr(0, [
+      new Constr(0, [ownerKeyHash]), // canceller: SIGNATURE by the burner's key
+      owner, // refundReceiver
+      noDatum,
+      owner, // successReceiver — the iUSD lands back in the burner
+      noDatum,
+      new Constr(0, [MINSWAP_LP_POLICY, MINSWAP_LP_NAME]),
+      new Constr(0, [
+        new Constr(1, []), // direction A_TO_B: pay ADA (assetA), receive iUSD (assetB)
+        new Constr(0, [spend]), // SPECIFIC_AMOUNT
+        minOut,
+        new Constr(0, []), // PENDING_ON_FAILED
+      ]),
+      MINSWAP_BATCHER_FEE,
+      new Constr(1, []), // no expiry
+    ]),
+  );
+}
+
+interface PoolState {
+  outRef: OutRef;
+  lovelace: bigint;
+  iusd: bigint;
+}
+
+/** Prove the pool is there and liquid before locking anything in an order. */
+async function minswapPool(): Promise<PoolState> {
+  const { body } = await blockfrost<{ tx_hash: string; output_index: number; amount: Amount[] }[]>(
+    `/addresses/${MINSWAP_POOL_ADDRESS}/utxos/${MINSWAP_LP_POLICY}${MINSWAP_LP_NAME}`,
+  );
+  const utxos = body ?? [];
+  if (utxos.length !== 1) {
+    throw new Error(
+      `expected exactly one Minswap V2 pool UTxO carrying the ADA/iUSD LP token ` +
+        `${MINSWAP_LP_POLICY}${MINSWAP_LP_NAME}, found ${utxos.length}`,
+    );
+  }
+  const pool = utxos[0]!;
+  const held = (unit: string): bigint => BigInt(pool.amount.find((a) => a.unit === unit)?.quantity ?? '0');
+  return {
+    outRef: { txHash: pool.tx_hash, outputIndex: pool.output_index },
+    lovelace: held('lovelace'),
+    iusd: held(IUSD_UNIT),
+  };
+}
+
+/** Every output of the built tx, so the operator can see nothing leaks before --yes. */
+function printOutputs(built: TxSignBuilder): void {
+  const body = built.toTransaction().body();
+  const outputs = body.outputs();
+  console.log(`  fee ${ada(body.fee())}`);
+  for (let i = 0; i < outputs.len(); i++) {
+    const output = outputs.get(i);
+    const value = output.amount();
+    console.log(`  out ${i} → ${output.address().to_bech32(undefined)}`);
+    console.log(`        ${ada(value.coin())}`);
+    const assets = value.multi_asset();
+    const policies = assets.keys();
+    for (let p = 0; p < policies.len(); p++) {
+      const policy = policies.get(p);
+      const names = assets.get_assets(policy);
+      if (!names) continue;
+      const keys = names.keys();
+      for (let n = 0; n < keys.len(); n++) {
+        const name = keys.get(n);
+        console.log(`        ${names.get(name)} × ${policy.to_hex()}${name.to_hex()}`);
+      }
+    }
+  }
+}
+
+function iusdOf(balance: Balance): bigint {
+  return BigInt(balance.assets.find((a) => a.unit === IUSD_UNIT)?.quantity ?? '0');
+}
+
+/** Batchers fill within a block or two; 15 minutes is the point at which something is wrong. */
+async function awaitFill(address: string, before: bigint, orderTxHash: string): Promise<void> {
+  const deadline = Date.now() + BUY_TIMEOUT_MS;
+  console.log('waiting for a Minswap batcher to fill the order…');
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, BUY_INTERVAL_MS));
+    let now: bigint;
+    try {
+      now = iusdOf(await getBalance(address));
+    } catch (err) {
+      console.log(`  balance lookup failed: ${detail(err)} (retrying)`);
+      continue;
+    }
+    if (now > before) {
+      console.log(`  filled: ${before} → ${now} iUSD base units (+${now - before})`);
+      return;
+    }
+    console.log(`  ${new Date().toISOString().slice(11, 19)}  still ${now} iUSD base units`);
+  }
+  throw new StageError(
+    `the order (${orderTxHash}#0) was submitted but no iUSD arrived within 15 minutes. It may still fill. ` +
+      `Check it at ${EXPLORERS[network()]}${orderTxHash} and under "Your Orders" at https://app.minswap.org/orders ` +
+      `for ${address} — cancelling there returns the locked ADA minus the cancellation fee.`,
+    `npm run execute:cdp -- buy-iusd --yes   (only after the order is confirmed cancelled, or it will place a second one)`,
+  );
+}
+
 // ── subcommands ─────────────────────────────────────────────────────────────
 
 function cmdGen(): void {
@@ -591,6 +746,79 @@ async function cmdClose(flags: Flags): Promise<void> {
   await sweepStep(lucid, address);
 }
 
+async function cmdBuyIusd(flags: Flags): Promise<void> {
+  const net = network();
+  if (net !== 'Mainnet') throw new Error(`buy-iusd only knows the mainnet Minswap V2 addresses, not ${net}`);
+  const spend = amountParam('SPEND_LOVELACE', DEFAULT_SPEND_LOVELACE);
+  const minOut = amountParam('MIN_IUSD_OUT', DEFAULT_MIN_IUSD_OUT);
+  if (spend === 0n || minOut === 0n) throw new Error('SPEND_LOVELACE and MIN_IUSD_OUT must both be positive');
+  const locked = spend + MINSWAP_BATCHER_FEE + MINSWAP_DEPOSIT_ADA;
+  const required = locked + BUY_HEADROOM_LOVELACE;
+
+  const { lucid, address } = await mkSigner();
+  const balance = await getBalance(address);
+  console.log(`burner ${address} (${net})`);
+  printBalance('balance ', balance);
+
+  const pool = await minswapPool();
+  console.log('\n── Minswap V2 ADA/iUSD pool ──');
+  console.log(`  ${pool.outRef.txHash}#${pool.outRef.outputIndex}`);
+  console.log(`  reserves ${ada(pool.lovelace)} / ${pool.iusd} iUSD base units`);
+  console.log(
+    `  ≈ ${((Number(pool.iusd) / Number(pool.lovelace)) * Number(spend)).toFixed(0)} iUSD base units for ` +
+      `${ada(spend)} before fees and price impact`,
+  );
+
+  console.log('\n── order ──');
+  console.log(`  SwapExactIn, ${ada(spend)} → at least ${minOut} iUSD base units`);
+  console.log(`  locks ${ada(locked)} at ${MINSWAP_ORDER_ADDRESS}`);
+  console.log(`    (${ada(spend)} swapped + ${ada(MINSWAP_BATCHER_FEE)} batcher fee + ${ada(MINSWAP_DEPOSIT_ADA)} deposit, returned on fill)`);
+  console.log(`  needs at least ${ada(required)} in the burner`);
+
+  if (balance.lovelace < required) {
+    throw new Error(
+      `burner holds ${ada(balance.lovelace)} but the order needs ${ada(required)} ` +
+        `(${ada(locked)} locked + ${ada(BUY_HEADROOM_LOVELACE)} for the tx fee and the change output's min-ADA). ` +
+        `Fund ${address} and retry.`,
+    );
+  }
+
+  const built = await lucid
+    .newTx()
+    .pay.ToContract(
+      MINSWAP_ORDER_ADDRESS,
+      { kind: 'inline', value: minswapOrderDatum(paymentCredentialOf(address).hash, spend, minOut) },
+      { lovelace: locked },
+    )
+    .attachMetadata(674, { msg: ['SDK Minswap: Swap Exact In Order'] })
+    .complete();
+
+  const cbor = built.toCBOR();
+  console.log('\n── built ──');
+  printOutputs(built);
+  console.log(`  ${cbor.length / 2} bytes of CBOR, tx hash ${built.toHash()}`);
+
+  if (!flags.yes) {
+    console.log('\nDRY RUN — add --yes to execute. Nothing was signed and nothing was submitted.');
+    return;
+  }
+
+  const before = iusdOf(balance);
+  let txHash: string;
+  try {
+    txHash = await (await built.sign.withWallet().complete()).submit();
+  } catch (err) {
+    throw new StageError(
+      `the order transaction was not accepted: ${detail(err)}. Nothing was locked.`,
+      'npm run execute:cdp -- buy-iusd --yes',
+    );
+  }
+  console.log(`  tx ${txHash}`);
+  console.log(`     ${EXPLORERS[net]}${txHash}`);
+  await awaitFill(address, before, txHash);
+  printBalance('balance ', await getBalance(address));
+}
+
 async function cmdSweep(): Promise<void> {
   const { lucid, address } = await mkSigner();
   console.log(`burner ${address} (${network()})`);
@@ -600,13 +828,15 @@ async function cmdSweep(): Promise<void> {
 
 // ── entry ───────────────────────────────────────────────────────────────────
 
-const USAGE = `usage: npm run execute:cdp -- <gen|run|close|sweep> [--yes] [flags]
+const USAGE = `usage: npm run execute:cdp -- <gen|run|close|sweep|buy-iusd> [--yes] [flags]
 
   gen                             new burner: appends CARDANO_PRIVATE_KEY to .env.local, prints the address
   run                             print the burner balance and the plan, then stop
   run --yes                       open a CDP, close it, sweep the burner — REAL FUNDS, no pauses
   close --txhash H --index N      recovery: close that CDP, then sweep
-  sweep                           recovery: send everything left in the burner to SWEEP_TO`;
+  sweep                           recovery: send everything left in the burner to SWEEP_TO
+  buy-iusd                        build a Minswap V2 ADA→iUSD market order and print it, then stop
+  buy-iusd --yes                  submit that order and wait for a batcher to fill it — REAL FUNDS`;
 
 async function main(): Promise<number> {
   loadEnvFiles();
@@ -623,6 +853,9 @@ async function main(): Promise<number> {
       return 0;
     case 'sweep':
       await cmdSweep();
+      return 0;
+    case 'buy-iusd':
+      await cmdBuyIusd(flags);
       return 0;
     default:
       console.log(USAGE);
