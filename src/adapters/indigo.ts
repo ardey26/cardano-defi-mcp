@@ -245,7 +245,13 @@ async function completeUnsigned(
   tx: Awaited<ReturnType<typeof openCdp>>,
   description: string
 ): Promise<UnsignedTx> {
-  const signBuilder = await tx.complete();
+  // Lucid reserves 5 ADA of pure-ADA collateral by default. For a small wallet
+  // whose every UTxO carries native assets, that starves the change output of
+  // its min-ADA. INDIGO_COLLATERAL_LOVELACE lowers the reservation (collateral
+  // only needs to cover 150% of the tx fee; it is never spent on success).
+  const collateralOverride = process.env.INDIGO_COLLATERAL_LOVELACE;
+  const options = collateralOverride ? { setCollateral: BigInt(collateralOverride) } : undefined;
+  const signBuilder = await tx.complete(options);
   return { unsignedTxCbor: signBuilder.toCBOR(), description, network: getNetwork() };
 }
 
@@ -316,6 +322,14 @@ export async function buildCloseCdp(params: CloseCdpParams): Promise<UnsignedTx>
   ]);
   const interestOracle = await findInterestOracle(lucid, collateral.datum.interestOracleNft);
 
+  // `closeCdp` stamps the CloseCdp redeemer with a `currentTime` read at entry, then
+  // derives the validity window from a *second*, later clock read — after five
+  // Blockfrost round-trips. The CDP validator requires `currentTime` to fall inside the
+  // window, so any round-trip latency above one slot pushes validFrom past currentTime
+  // and the validator crashes ("Spend[N] ... Trace A"). Re-anchor the window on a clock
+  // read taken before the call, which the SDK's own `adjustCdp` already does.
+  const anchor = lucid.slotToUnixTime(lucid.currentSlot());
+
   const tx = await closeCdp(
     params.cdpOutRef,
     toOutRef(collateral.utxo),
@@ -324,6 +338,9 @@ export async function buildCloseCdp(params: CloseCdpParams): Promise<UnsignedTx>
     sysParams,
     lucid
   );
+
+  const halfBiasTime = Number(sysParams.cdpParams.biasTime) / 2;
+  tx.validFrom(anchor - halfBiasTime).validTo(anchor + halfBiasTime);
 
   return completeUnsigned(
     tx,
