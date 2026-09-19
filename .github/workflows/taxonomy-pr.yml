@@ -19,6 +19,14 @@ jobs:
   label-gate:
     runs-on: ubuntu-latest
     steps:
+      - name: Require the taxonomy/ branch prefix
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            taxonomy/*) echo "branch prefix ok: $HEAD_REF" ;;
+            *) echo "::error::Venue PRs must come from a branch named taxonomy/<something> (got '$HEAD_REF')."; exit 1 ;;
+          esac
       - name: Require the taxonomy-addition label
         env:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}

@@ -129,12 +129,14 @@ every push to `main` that touches `taxonomy/` or `scripts/`. This requires the r
 
 The taxonomy is a community registry — a venue is one JSON file, and adding one takes a PR.
 
-1. Fork the repo.
+1. Fork the repo and create a branch named `taxonomy/<something>` (e.g. `taxonomy/add-myvenue`) —
+   the PR gate rejects other branch names.
 2. Add `taxonomy/venues/<id>.json`. The filename (minus `.json`) must equal the record's `id`, and
    the record must match [`src/taxonomy/schema.ts`](src/taxonomy/schema.ts). Copy an existing file
    such as `taxonomy/venues/minswap.json` as a starting point.
 3. Run `npm run validate:taxonomy` locally — it needs no dependencies and names every problem.
-4. Open a PR. CI validates the file and prints a summary of what changed.
+4. Open a PR. CI validates the file and prints a summary of what changed. A maintainer applies the
+   `taxonomy-addition` label after review; the PR cannot merge without it.
 
 Keep `notes` honest: say what you verified and what you did not. Asset lists are expected to be
 directional rather than exhaustive. On merge, the explorer and `taxonomy.json` republish
