@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 /**
- * BazaarSwap Cardano MCP server (stdio).
+ * BazaarSwap Cardano MCP server.
  *
- * stdout is the JSON-RPC transport: never `console.log`. Diagnostics go to stderr.
+ * Two transports, same tools:
+ *   - stdio (default, local): stdout IS the JSON-RPC transport — never `console.log`.
+ *   - Streamable HTTP (MCP_TRANSPORT=http, or any PORT, which is how Render starts it).
  */
+
+import { pathToFileURL } from 'node:url';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
+import { startHttpServer } from './http.js';
 import { registerTools } from './tools/index.js';
 
-function createServer(): McpServer {
+export function createMcpServer(): McpServer {
   const server = new McpServer(
     { name: 'cardano-defi-mcp', version: '0.1.0' },
     {
@@ -27,12 +32,30 @@ function createServer(): McpServer {
 }
 
 async function main(): Promise<void> {
-  const server = createServer();
+  const transport = process.env.MCP_TRANSPORT ?? (process.env.PORT ? 'http' : 'stdio');
+
+  if (transport === 'http') {
+    const port = Number(process.env.PORT ?? 3000);
+    const rateLimitPerMin = Number(process.env.RATE_LIMIT_PER_MIN ?? 60);
+    await startHttpServer({ port, createMcpServer, rateLimitPerMin });
+    console.error(
+      `cardano-defi-mcp MCP server ready on http://0.0.0.0:${port}/mcp ` +
+        `(${rateLimitPerMin} req/min per IP, health at /health)`,
+    );
+    return;
+  }
+
+  const server = createMcpServer();
   await server.connect(new StdioServerTransport());
   console.error('cardano-defi-mcp MCP server ready on stdio');
 }
 
-main().catch((err: unknown) => {
-  console.error('cardano-defi-mcp MCP server failed to start:', err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+// Only run when executed directly, so tests can import createMcpServer without
+// this file grabbing stdio.
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(entry).href) {
+  main().catch((err: unknown) => {
+    console.error('cardano-defi-mcp MCP server failed to start:', err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

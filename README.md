@@ -31,6 +31,9 @@ npx tsx src/server.ts   # MCP server on stdio
 | `CARDANO_NETWORK` | Blockfrost / Indigo host selection | `mainnet` (`mainnet` \| `preprod`) |
 | `INDIGO_API_URL` | Indigo `get_position` | `https://analytics.indigoprotocol.io` |
 | `INDIGO_SYSTEM_PARAMS_URL` | `open_cdp`, `close_cdp` | — (or `INDIGO_SYSTEM_PARAMS_FILE`) |
+| `MCP_TRANSPORT` | transport selection | `stdio`, or `http` when `PORT` is set |
+| `PORT` | HTTP mode | — (setting it selects HTTP mode) |
+| `RATE_LIMIT_PER_MIN` | HTTP mode | `60` requests/min per IP on `/mcp` |
 
 Every read tool except `get_balance` and the Indigo tools works with no API keys at all.
 
@@ -38,6 +41,36 @@ Every read tool except `get_balance` and the Indigo tools works with no API keys
 
 Copy `.mcp.json.example` to `.mcp.json` in your project root, fill in the env placeholders, and
 restart Claude Code. Then `/mcp` should list `cardano-defi-mcp` with nine tools.
+
+## Hosted / HTTP mode
+
+The same nine tools also speak **Streamable HTTP**, so the server can be hosted instead of spawned.
+stdio stays the default; setting `PORT` (or `MCP_TRANSPORT=http`) switches transports.
+
+```bash
+npm run build
+PORT=3000 npm start            # POST /mcp, GET /health
+```
+
+Connect a client to it:
+
+```bash
+claude mcp add --transport http cardano-defi https://<your-host>/mcp
+```
+
+- **Stateless.** No sessions, no `Mcp-Session-Id`: every POST gets its own server instance, so a
+  restart costs a client nothing. `GET`/`DELETE /mcp` answer `405` — with no session there is no
+  server-initiated stream to open and nothing to tear down.
+- **Rate limited** to 60 requests/min per IP on `/mcp` (`RATE_LIMIT_PER_MIN`), sliding window, in
+  memory. Over budget gets a `429` with `Retry-After` and a JSON-RPC error body. `/health` is exempt.
+- **Open CORS** (`Access-Control-Allow-Origin: *`) so browser-based MCP clients can reach it. There
+  is no auth and no secret worth stealing in the response — the server holds no keys and signs
+  nothing — but everything it can do, any caller can do, so host it with that in mind.
+
+`render.yaml` deploys it as a Render web service (free plan, `/health` as the health check). Note
+what a free tier means: **the instance sleeps after ~15 minutes idle**, so the first call after a
+quiet spell can take tens of seconds while it wakes. It is a proof of concept, not an SLA — for
+anything real, run your own instance or use stdio.
 
 ## Tools
 
@@ -105,7 +138,9 @@ taxonomy/venues/*.json      one file per venue, validated by VenueSchema
 src/taxonomy/               zod schema + loadVenues / listVenues / getVenue / searchVenues
 src/adapters/               blockfrost, liqwid, indigo, swap (BazaarSwap API client)
 src/tools/                  MCP tool registrations (thin: parse -> adapter -> JSON text)
-src/server.ts               McpServer + StdioServerTransport
+src/server.ts               McpServer wiring + transport selection (stdio | http)
+src/http.ts                 Streamable HTTP host: routing, CORS, /health, rate limiting
+src/rate-limit.ts           in-memory sliding-window per-IP limiter
 src/__tests__/              vitest; all network mocked
 ```
 

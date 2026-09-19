@@ -1,0 +1,49 @@
+# Render blueprint for the public Streamable HTTP MCP endpoint.
+# Deploy: Render dashboard -> New -> Blueprint -> point at this repo.
+#
+# Free plan: one instance, spun down after ~15 minutes idle, so the first request
+# after a quiet spell pays a cold start (tens of seconds). Fine for a PoC.
+services:
+  - type: web
+    name: cardano-defi-mcp
+    runtime: node
+    plan: free
+    # --include=dev because Render sets NODE_ENV=production, under which a plain
+    # `npm ci` omits devDependencies — and typescript is one, so the build needs it.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+
+      # Render always sets PORT, which alone would select HTTP mode; say it out loud anyway.
+      - key: MCP_TRANSPORT
+        value: http
+
+      # Per-IP sliding window on /mcp. Unauthenticated endpoint — keep it modest.
+      - key: RATE_LIMIT_PER_MIN
+        value: "60"
+
+      # Secret: set in the Render dashboard. Without it, get_balance / open_cdp /
+      # close_cdp return a clear error and every other tool still works.
+      - key: BLOCKFROST_PROJECT_ID
+        sync: false
+
+      # The BazaarSwap routing backend is a separate closed-source service with no
+      # public host yet, so there is no sensible default to bake in — set the base
+      # URL in the dashboard, or get_quote / build_swap_tx will fail.
+      - key: BAZAAR_API_URL
+        sync: false
+
+      # Public read-only endpoints below.
+      - key: LIQWID_GRAPHQL_URL
+        value: https://v2.api.liqwid.finance/graphql
+
+      - key: INDIGO_API_URL
+        value: https://analytics.indigoprotocol.io
+
+      # Indigo publishes no stable URL for this file — the version suffix changes on
+      # each protocol upgrade, so bump it when open_cdp / close_cdp start 404ing.
+      - key: INDIGO_SYSTEM_PARAMS_URL
+        value: https://config.indigoprotocol.io/mainnet/mainnet-system-params-v3.json

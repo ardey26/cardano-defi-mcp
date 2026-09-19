@@ -17,7 +17,9 @@ src/adapters/liqwid.ts      # getMarkets() / getPositions(address)  [read-only G
 src/adapters/indigo.ts      # getPositions(address) / buildOpenCdp / buildCloseCdp  [indigo-sdk]
 src/adapters/swap.ts        # getQuote(params) / buildSwapTx(quoteId, userAddress)  [Bazaar API client]
 src/tools/*.ts              # MCP tool registrations (thin: parse args -> adapter -> JSON text content)
-src/server.ts               # McpServer + StdioServerTransport wiring
+src/server.ts               # McpServer wiring + transport selection (stdio | http)
+src/http.ts                 # Streamable HTTP host: routing, CORS, /health, stateless per-request transport
+src/rate-limit.ts           # in-memory sliding-window per-IP limiter for the HTTP host
 src/__tests__/              # vitest
 ```
 
