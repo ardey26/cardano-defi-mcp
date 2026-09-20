@@ -27,6 +27,13 @@ is the only prerequisite, and the CLI says so plainly if you are on an older one
 > confirmation prompt anywhere — the policy caps (25 ADA / 0.01 ETH per transaction by default) *are*
 > the confirmation. Fund it like a prepaid card, not like a savings account. If you want the keyless
 > server only, use the [hosted HTTP endpoint](#hosted--http-mode-keyless) instead.
+>
+> **There is no seed phrase and no recovery.** The keys live only in `~/.cardano-defi-mcp/credentials.env`
+> (or `.env.local` in a checkout) — delete that file or lose the machine and the funds are gone forever.
+> Back it up if the wallet holds more than pocket change.
+>
+> **The caps meter native ETH and ADA only.** ERC-20 tokens held by the wallet are not value-limited —
+> fund with native assets, and treat any token balance as fully delegated to the agent.
 
 ### The conversation that sets you up
 

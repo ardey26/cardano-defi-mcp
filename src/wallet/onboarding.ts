@@ -106,7 +106,13 @@ const FUNDING =
   'spendable by the agent without asking you, up to the caps above — there is no confirmation prompt ' +
   'anywhere in this server, the caps are the confirmation. Send a small amount you would not mind ' +
   'losing (a few ADA, a few dollars of ETH for gas), top it up when it runs out, and never use a ' +
-  'wallet you also use for anything else.';
+  'wallet you also use for anything else. ' +
+  'TWO WARNINGS TO RELAY TO THE USER VERBATIM: (1) The keys exist ONLY in the credentials file named ' +
+  'above — there is no seed phrase, no recovery, no backup anywhere else. If that file is deleted or ' +
+  'the machine is lost, any funds in these addresses are gone forever; back the file up now if the ' +
+  'wallet will hold more than pocket change. (2) The spending caps meter native ETH and ADA only — ' +
+  'ERC-20 tokens (USDC, USDT, …) held by this wallet are NOT value-limited by the caps, so fund with ' +
+  'native assets and treat any token balance as fully delegated to the agent.';
 
 async function onboardingResult(run: () => Promise<unknown>): Promise<CallToolResult> {
   try {
