@@ -1,0 +1,41 @@
+{
+  "id": "indigo-mcp",
+  "name": "Indigo Protocol MCP",
+  "publisher": "Indigo Protocol",
+  "official": true,
+  "repo": "https://github.com/IndigoProtocol/indigo-mcp",
+  "connect": [
+    { "transport": "stdio", "command": "npx", "args": ["-y", "-p", "undici", "-p", "@indigoprotocol/indigo-mcp", "indigo-mcp"] }
+  ],
+  "auth": "none",
+  "tools": [
+    { "name": "open_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "close_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "mint_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "burn_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "deposit_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "withdraw_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "merge_cdps", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "leverage_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "notes": "Opens a leveraged CDP by redeeming against order-book positions." },
+    { "name": "create_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "adjust_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "close_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "open_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "adjust_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "close_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
+    { "name": "create_stableswap_order", "capability": "trade.swap", "venues": ["indigo"], "effect": "unsigned_tx", "notes": "Swaps collateral for an iAsset or back through Indigo's stableswap pool." },
+    { "name": "get_steelswap_estimate", "capability": "trade.swap", "effect": "read", "notes": "Quote from the Steelswap aggregator; builds no transaction." },
+    { "name": "get_cdps_by_owner", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_cdps_by_address", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
+    { "name": "analyze_cdp_health", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_sp_account_by_owner", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_staking_positions_by_owner", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_staking_position_by_address", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_assets", "capability": "data.market", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_asset_price", "capability": "data.market", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_indy_price", "capability": "data.market", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_stability_pools", "capability": "data.market", "venues": ["indigo"], "effect": "read" },
+    { "name": "get_blockfrost_balances", "capability": "wallet.balance", "effect": "read" }
+  ],
+  "notes": "Verified by tools/list on 2026-10-13 against @indigoprotocol/indigo-mcp 0.4.2 (69 tools). The published package fails to start without its undici dependency, so the connect command installs it alongside. Listing tools needs no key; building transactions needs BLOCKFROST_API_KEY. Tools with no capability node are left out: admin and maintenance operations, keeper actions (liquidate, redeem, freeze), the redemption order book, governance, oracles and IPFS."
+}
