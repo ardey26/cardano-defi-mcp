@@ -118,6 +118,7 @@ h1 {
 .key-item[data-integration="adapter_live"] { border-left-style: solid; border-left-color: var(--live); }
 .key-item[data-integration="read_only"] { border-left-style: dashed; border-left-color: var(--partial); }
 .key-item[data-integration="indexed"] { border-left-style: dotted; border-left-color: var(--idle); }
+.key-item[data-integration="external"] { border-left-style: solid; border-left-color: var(--accent); }
 
 .key-count {
   font-family: Newsreader, ui-serif, Georgia, serif;
@@ -203,6 +204,7 @@ h1 {
 .record[data-integration="adapter_live"] { border-left-style: solid; border-left-color: var(--live); }
 .record[data-integration="read_only"] { border-left-style: dashed; border-left-color: var(--partial); }
 .record[data-integration="indexed"] { border-left-style: dotted; border-left-color: var(--idle); }
+.record[data-integration="external"] { border-left-style: solid; border-left-color: var(--accent); }
 
 .venue-name {
   font-family: Newsreader, ui-serif, Georgia, serif;
@@ -228,6 +230,7 @@ h1 {
 .status[data-integration="adapter_live"] { color: var(--surface); background: var(--live); border-color: var(--live); }
 .status[data-integration="read_only"] { color: var(--partial); border-color: var(--partial); border-style: dashed; background: transparent; }
 .status[data-integration="indexed"] { color: var(--idle); border-color: var(--rule); border-style: dotted; background: transparent; }
+.status[data-integration="external"] { color: var(--accent); border-color: var(--accent); background: transparent; }
 @media (prefers-color-scheme: dark) {
   .status[data-integration="adapter_live"] { color: #0f1115; }
 }
@@ -309,7 +312,7 @@ footer p { margin: 0 0 6px; max-width: 68ch; }
 
 <header class="masthead wrap">
   <h1>Cardano DeFi Taxonomy</h1>
-  <p class="lede">An open index of Cardano DeFi venues — what each one is, what it lets you do, and how far our integration actually goes. The cardano-defi-mcp server publishes this same index to AI agents, so what an agent is told is what you can read here.</p>
+  <p class="lede">An open index of what AI agents can do in Cardano DeFi — which venues offer each capability, and which MCP servers let an agent act there. The cardano-defi-mcp server answers the same questions for agents through find_capability, so what an agent is told is what you can read here.</p>
   <a class="repo" href="{{REPO_URL}}">Source, schema and venue files on GitHub</a>
   <div class="key" id="key"></div>
 </header>
@@ -329,12 +332,13 @@ footer p { margin: 0 0 6px; max-width: 68ch; }
 </main>
 
 <footer class="wrap">
-  <p>Integration status describes this project's connection to the venue, not the venue's own maturity. Coverage notes record where the data is incomplete or unverified; read them before relying on a listing.</p>
-  <p>Generated from taxonomy/venues/*.json.</p>
+  <p>Status shows what an AI agent can do at the venue through a listed MCP server, not the venue's own maturity. Coverage notes record where the data is incomplete or unverified; read them before relying on a listing.</p>
+  <p>Generated from taxonomy/.</p>
 </footer>
 
 <script>
 const VENUES = {{VENUES_JSON}};
+const CAPABILITIES = {{CAPABILITIES_JSON}};
 
 const CATEGORY_LABELS = {
   dex: "DEX",
@@ -344,22 +348,13 @@ const CATEGORY_LABELS = {
   derivatives: "Derivatives"
 };
 
-const CAPABILITY_LABELS = {
-  swap: "swap",
-  liquidity_provision: "liquidity provision",
-  supply: "supply",
-  borrow: "borrow",
-  cdp_mint: "CDP mint",
-  stability_pool: "stability pool",
-  staking: "staking",
-  perps: "perpetuals",
-  stablecoin_mint: "stablecoin mint"
-};
+const CAPABILITY_LABELS = Object.fromEntries(CAPABILITIES.map(c => [c.id, c.label]));
 
 const INTEGRATION = [
-  { id: "adapter_live", label: "Adapter live", desc: "Reads live state and builds unsigned transactions." },
-  { id: "read_only", label: "Read only", desc: "Reads live protocol data. No transaction building." },
-  { id: "indexed", label: "Indexed", desc: "Described in the index. No live connection yet." }
+  { id: "adapter_live", label: "Act here", desc: "This project's MCP servers build or sign transactions for it." },
+  { id: "read_only", label: "Read here", desc: "This project's MCP server reads its live data. No transactions." },
+  { id: "external", label: "Other MCP", desc: "Another listed MCP server covers it. See its agent paths." },
+  { id: "indexed", label: "No agent path", desc: "Described in the index. No listed MCP server covers it yet." }
 ];
 
 const INTEGRATION_LABELS = Object.fromEntries(INTEGRATION.map(s => [s.id, s.label]));
@@ -417,6 +412,7 @@ function renderRecord(venue) {
   detail.appendChild(el("p", "description", venue.description));
   detail.appendChild(chipRow("Assets", venue.assets, "asset"));
   detail.appendChild(chipRow("Does", venue.capabilities, "capability", v => label(CAPABILITY_LABELS, v)));
+  if (venue.paths.length) detail.appendChild(chipRow("Agent paths", venue.paths, "path"));
 
   if (venue.notes) {
     const notes = el("details", "notes");
