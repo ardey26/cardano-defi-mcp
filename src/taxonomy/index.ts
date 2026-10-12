@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import {
   CapabilityNodeSchema,
+  McpSchema,
   VenueSchema,
   type CapabilityNode,
   type Category,
+  type Mcp,
   type Venue,
 } from './schema.js';
 
@@ -112,4 +114,30 @@ export function searchVenues(q: string, root = TAXONOMY_ROOT): Venue[] {
       field.toLowerCase().includes(needle),
     ),
   );
+}
+
+export function loadMcps(root = TAXONOMY_ROOT): Mcp[] {
+  const capabilities = new Set(loadCapabilities(root).map((c) => c.id));
+  const venues = new Set(loadVenues(root).map((v) => v.id));
+
+  return readRecords(join(root, 'mcps'), McpSchema, 'MCP').map(({ file, record }) => {
+    const problems: string[] = [];
+    const names = new Set<string>();
+    for (const tool of record.tools) {
+      if (names.has(tool.name)) problems.push(`duplicate tool '${tool.name}'`);
+      names.add(tool.name);
+      if (!capabilities.has(tool.capability)) {
+        problems.push(`tool '${tool.name}' capability '${tool.capability}' not in capabilities.json`);
+      }
+      for (const v of tool.venues ?? []) {
+        if (!venues.has(v)) problems.push(`tool '${tool.name}' venue '${v}' is not a venue id`);
+      }
+    }
+    if (problems.length > 0) throw new Error(`Invalid MCP file ${file}: ${problems.join('; ')}`);
+    return record;
+  });
+}
+
+export function getMcp(id: string, root = TAXONOMY_ROOT): Mcp | undefined {
+  return loadMcps(root).find((m) => m.id === id);
 }

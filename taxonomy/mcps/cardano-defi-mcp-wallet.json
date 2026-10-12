@@ -1,0 +1,18 @@
+{
+  "id": "cardano-defi-mcp-wallet",
+  "name": "Cardano DeFi MCP — agent wallet",
+  "publisher": "ardey26",
+  "official": false,
+  "repo": "https://github.com/ardey26/cardano-defi-mcp",
+  "connect": [
+    { "transport": "stdio", "command": "npx", "args": ["-y", "github:ardey26/cardano-defi-mcp", "wallet"] }
+  ],
+  "auth": "none",
+  "tools": [
+    { "name": "sign_and_submit_cardano", "capability": "wallet.sign", "effect": "signs" },
+    { "name": "send_cardano", "capability": "wallet.send", "effect": "signs" },
+    { "name": "sign_and_submit_evm", "capability": "trade.cross_chain_swap", "effect": "signs", "notes": "Signs the EVM source leg of a cross-chain swap built by build_swap_tx." },
+    { "name": "approve_erc20", "capability": "trade.cross_chain_swap", "effect": "signs", "notes": "ERC-20 allowance for the swap router. Exempt from the value caps, so the spender can later move up to the approved amount." }
+  ],
+  "notes": "Holds private keys and signs WITH NO HUMAN CONFIRMATION, bounded only by per-transaction and rolling-24h caps per chain family. Local stdio only; it refuses to run over a network transport."
+}
