@@ -1,0 +1,18 @@
+[
+  { "id": "trade.swap", "label": "Swap", "description": "Swap one Cardano token for another." },
+  { "id": "trade.cross_chain_swap", "label": "Cross-chain swap", "description": "Swap from an asset on another chain into a Cardano asset, or back." },
+  { "id": "trade.perps", "label": "Perpetuals", "description": "Open or close perpetual futures positions." },
+  { "id": "earn.liquidity", "label": "Provide liquidity", "description": "Deposit a token pair into an AMM pool for trading fees." },
+  { "id": "earn.stake", "label": "Stake protocol token", "description": "Stake a protocol's own token for rewards or governance weight." },
+  { "id": "earn.stability_pool", "label": "Stability pool", "description": "Deposit a synthetic into a pool that absorbs liquidations for a share of the collateral." },
+  { "id": "lend.supply", "label": "Supply", "description": "Supply assets to a money market to earn interest." },
+  { "id": "lend.borrow", "label": "Borrow", "description": "Borrow assets against posted collateral." },
+  { "id": "mint.cdp", "label": "Mint via CDP", "description": "Mint a synthetic asset against a collateralized debt position, or close one." },
+  { "id": "mint.stablecoin", "label": "Mint stablecoin", "description": "Mint or redeem a reserve-backed stablecoin." },
+  { "id": "wallet.balance", "label": "Balance", "description": "Read the ADA and native-asset balance of an address." },
+  { "id": "wallet.send", "label": "Send", "description": "Send ADA or native assets to an address." },
+  { "id": "wallet.delegate", "label": "Delegate", "description": "Delegate ADA to a stake pool." },
+  { "id": "wallet.sign", "label": "Sign transaction", "description": "Sign and submit a transaction built elsewhere." },
+  { "id": "data.market", "label": "Market data", "description": "Read prices, rates or utilization." },
+  { "id": "data.position", "label": "Positions", "description": "Read an address's open DeFi positions." }
+]

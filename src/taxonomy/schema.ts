@@ -8,6 +8,17 @@ export const CategorySchema = z.enum([
   'derivatives',
 ]);
 
+// Two-level dot path into taxonomy/capabilities.json, e.g. "lend.borrow".
+export const CapabilityIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z_]*\.[a-z][a-z_]*$/, 'must look like "group.action" in lowercase');
+
+export const CapabilityNodeSchema = z.strictObject({
+  id: CapabilityIdSchema,
+  label: z.string().min(1),
+  description: z.string().min(1),
+});
+
 export const CapabilitySchema = z.enum([
   'swap',
   'liquidity_provision',
@@ -42,3 +53,4 @@ export type Category = z.infer<typeof CategorySchema>;
 export type Capability = z.infer<typeof CapabilitySchema>;
 export type Integration = z.infer<typeof IntegrationSchema>;
 export type Venue = z.infer<typeof VenueSchema>;
+export type CapabilityNode = z.infer<typeof CapabilityNodeSchema>;
