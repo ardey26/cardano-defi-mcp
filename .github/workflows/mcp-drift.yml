@@ -1,0 +1,63 @@
+name: MCP drift
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  # Spawns third-party MCP servers, so it holds no write permissions and no
+  # secrets. It only produces a report.
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node scripts/mcp-tools.mjs --check --out drift.json
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drift
+          path: drift.json
+          if-no-files-found: error
+
+  # Never runs third-party code: it reads the report and files or updates one issue.
+  report:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: drift
+      - name: File or update the drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const bad = JSON.parse(fs.readFileSync("drift.json", "utf8")).filter((r) => !r.ok);
+            if (bad.length === 0) process.exit(0);
+            const lines = bad.map((r) => r.error
+              ? `- **${r.id}**: could not list tools (${r.error})`
+              : `- **${r.id}**: declared but missing: ${r.missing.join(", ")}`);
+            fs.writeFileSync("body.md",
+              "The weekly tools/list check found taxonomy/mcps/ entries that no longer match their servers. " +
+              "Fix the entry or remove it.\n\n" + lines.join("\n") + "\n");
+          '
+          if [ ! -f body.md ]; then echo "no drift"; exit 0; fi
+          existing=$(gh issue list --state open --label mcp-drift --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh label create mcp-drift --color D93F0B --description "A taxonomy MCP entry no longer matches its server" 2>/dev/null || true
+            gh issue create --title "MCP drift: taxonomy entries out of date" --label mcp-drift --body-file body.md
+          fi
