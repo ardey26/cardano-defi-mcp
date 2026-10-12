@@ -73,14 +73,17 @@ export function findCapability(query: FindQuery, here: readonly string[], root =
         'or a capability id from list_capabilities.',
     );
   }
-  if (query.venue && !getVenue(query.venue, root)) {
+  const venueFilter = query.venue?.trim().toLowerCase();
+  if (venueFilter && !getVenue(venueFilter, root)) {
     throw new Error(`Unknown venue '${query.venue}'. Call list_venues to see the available ids.`);
   }
 
-  const venues = listVenues({ capability, asset: query.asset }, root).filter(
-    (v) => !query.venue || v.id === query.venue,
-  );
-  const venueIds = new Set(venues.map((v) => v.id));
+  // Tool paths match against every venue in scope, not only venues whose record
+  // lists the capability: venues list what they offer (lend.*), while agent-side
+  // capabilities like data.position never appear on a venue record.
+  const inScope = listVenues({ asset: query.asset }, root).filter((v) => !venueFilter || v.id === venueFilter);
+  const scopeIds = new Set(inScope.map((v) => v.id));
+  const venues = inScope.filter((v) => v.capabilities.some((c) => matchesCapability(c, capability)));
 
   const paths: AgentPath[] = [];
   for (const server of loadMcps(root)) {
@@ -95,11 +98,12 @@ export function findCapability(query: FindQuery, here: readonly string[], root =
         here: here.includes(server.id),
       };
       if (!tool.venues) {
-        paths.push({ ...base, venue: null });
+        // A tool that names no venue cannot claim the one the agent asked about.
+        if (!venueFilter) paths.push({ ...base, venue: null });
         continue;
       }
       for (const v of tool.venues) {
-        if (venueIds.has(v)) paths.push({ ...base, venue: v });
+        if (scopeIds.has(v)) paths.push({ ...base, venue: v });
       }
     }
   }

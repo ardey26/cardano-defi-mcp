@@ -114,7 +114,11 @@ Migration (mechanical, one script):
   its README.
 
 Seed set: this server, this repo's local wallet server (separate entry,
-`cardano-defi-mcp-wallet`, `effect: signs`), Indigo MCP, Indigo cardano-mcp, Fetch Cardano.
+`cardano-defi-mcp-wallet`, `effect: signs`), Indigo MCP, Fetch Cardano. Indigo cardano-mcp is
+deferred: it refuses to start without a seed phrase, so its tools could not be listed safely.
+
+Agent-side capabilities (`data.*`, `wallet.*`) are not listed on venue records. A venue-specific
+tool is returned for any venue in scope, whether or not the venue record lists the capability.
 
 Venue records are strict: an unknown field (for example a leftover v1 `integration`) is a
 validation error, not silently dropped.

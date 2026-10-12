@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findCapability, listCapabilities } from '../taxonomy/find.js';
+import { loadMcps } from '../taxonomy/index.js';
 import { SELF_MCP_ID } from '../taxonomy/self.js';
 import { mcp, venue, writeTaxonomy } from './fixtures.js';
 
@@ -15,6 +16,7 @@ const root = writeTaxonomy({
       tools: [
         { name: 'borrow_alpha', capability: 'lend.borrow', venues: ['alpha'], effect: 'unsigned_tx' },
         { name: 'balance', capability: 'wallet.balance', effect: 'read' },
+        { name: 'position_alpha', capability: 'wallet.balance', venues: ['alpha'], effect: 'read' },
       ],
     }),
     'ext-official': mcp('ext-official', {
@@ -69,9 +71,9 @@ describe('findCapability', () => {
   it('returns venue-agnostic tools with a null venue', () => {
     const result = findCapability({ capability: 'wallet.balance' }, HERE, root);
     expect(result.venues).toEqual([]);
-    expect(result.paths).toEqual([
+    expect(result.paths[0]).toEqual(
       { capability: 'wallet.balance', venue: null, mcp: 'here-mcp', tool: 'balance', effect: 'read', official: false, here: true },
-    ]);
+    );
   });
 
   it('normalizes case and whitespace', () => {
@@ -99,11 +101,41 @@ describe('findCapability', () => {
   });
 });
 
+describe('findCapability review fixes', () => {
+  it('returns a venue-specific tool even when the venue record does not list that capability', () => {
+    // Venues list what they offer (lend.*); agent-side capabilities like positions are not on the venue record.
+    const result = findCapability({ capability: 'wallet.balance' }, HERE, root);
+    expect(brief(result)).toContain('here-mcp/position_alpha@alpha');
+    expect(result.venues).toEqual([]);
+    expect(result.gaps).toEqual([]);
+  });
+
+  it('drops venue-agnostic paths when a venue filter is set', () => {
+    const result = findCapability({ capability: 'wallet.balance', venue: 'alpha' }, HERE, root);
+    expect(brief(result)).toEqual(['here-mcp/position_alpha@alpha']);
+  });
+
+  it('normalizes case and whitespace in the venue filter', () => {
+    expect(findCapability({ capability: 'lend.borrow', venue: ' BETA ' }, HERE, root)).toEqual(
+      findCapability({ capability: 'lend.borrow', venue: 'beta' }, HERE, root),
+    );
+  });
+
+  it('on the real taxonomy, every classified tool is reachable through its own capability', () => {
+    for (const server of loadMcps()) {
+      for (const tool of server.tools) {
+        const paths = findCapability({ capability: tool.capability }, [SELF_MCP_ID]).paths;
+        expect(paths.some((p) => p.mcp === server.id && p.tool === tool.name), `${server.id}/${tool.name}`).toBe(true);
+      }
+    }
+  });
+});
+
 describe('listCapabilities', () => {
   it('counts venues and tools per node', () => {
     const byId = Object.fromEntries(listCapabilities(root).map((c) => [c.id, c]));
     expect(byId['lend.borrow']).toMatchObject({ venues: 2, tools: 4 });
     expect(byId['lend.supply']).toMatchObject({ venues: 1, tools: 0 });
-    expect(byId['wallet.balance']).toMatchObject({ venues: 0, tools: 1 });
+    expect(byId['wallet.balance']).toMatchObject({ venues: 0, tools: 2 });
   });
 });

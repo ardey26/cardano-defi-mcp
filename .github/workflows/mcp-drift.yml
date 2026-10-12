@@ -6,18 +6,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Spawns third-party MCP servers, so it holds no write permissions and no
-  # secrets. It only produces a report.
+  # Spawns third-party MCP servers, so it holds no token, leaves no
+  # credentials in .git/config, and skips the npm cache (a cache entry written
+  # here would be restored by other workflows on main). It only produces a report.
   check:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
       - run: node scripts/mcp-tools.mjs --check --out drift.json
         continue-on-error: true

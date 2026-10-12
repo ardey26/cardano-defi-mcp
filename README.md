@@ -296,7 +296,9 @@ takes a PR.
    `taxonomy/mcps/cardano-defi-mcp.json` as a starting point. Capabilities must be ids from
    `taxonomy/capabilities.json`; propose a new node in the same PR if none fits.
 3. For an MCP server, take tool names from a real `tools/list` run, not the README:
-   `node scripts/mcp-tools.mjs --connect '<your connect JSON>'`. Mark `official: true` only if you
+   `node scripts/mcp-tools.mjs --connect '<your connect JSON>'`. This **runs** the server, so only
+   point it at code you trust, from a throwaway directory with no secrets in your environment. Mark
+   `official: true` only if you
    operate the venues it acts on, and `effect: signs` for any tool that submits with a key the
    server holds.
 4. Run `npm run validate:taxonomy` locally — it needs no dependencies and names every problem.
