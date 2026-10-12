@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-import { CategorySchema, getVenue, listVenues, searchVenues } from '../taxonomy/index.js';
+import { findCapability, listCapabilities } from '../taxonomy/find.js';
+import { CategorySchema, getMcp, getVenue, listVenues, searchVenues } from '../taxonomy/index.js';
 import { toolResult } from './result.js';
 
-export function registerTaxonomyTools(server: McpServer): void {
+/** `here` lists the taxonomy/mcps/ ids whose tools this server registers, so find_capability can mark them callable. */
+export function registerTaxonomyTools(server: McpServer, here: readonly string[]): void {
   server.registerTool(
     'list_venues',
     {
@@ -50,6 +52,68 @@ export function registerTaxonomyTools(server: McpServer): void {
           throw new Error(`Unknown venue '${id}'. Call list_venues to see the available ids.`);
         }
         return venue;
+      }),
+  );
+
+  server.registerTool(
+    'list_capabilities',
+    {
+      title: 'List what agents can do on Cardano',
+      description:
+        'List the capability tree (e.g. lend.borrow, trade.swap, mint.cdp) with how many venues offer each ' +
+        'capability and how many MCP tools can perform it. Use an id or a group ("lend") with find_capability. ' +
+        'Read-only.',
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    async () =>
+      toolResult(async () => {
+        const capabilities = listCapabilities();
+        return { count: capabilities.length, capabilities };
+      }),
+  );
+
+  server.registerTool(
+    'find_capability',
+    {
+      title: 'Find venues and MCP tools for a capability',
+      description:
+        'Answer "how can an agent do X on Cardano?". Returns the venues offering the capability, the MCP tools ' +
+        'that can perform it ranked best first, and gaps (venues where no MCP tool can act). A path with ' +
+        '`here: true` is a tool on this server: call it directly. Otherwise call get_mcp for its connect ' +
+        'config and ask the user to add that server; never claim you can use a tool that is not here. ' +
+        'Ranking prefers tools that hold no keys (effect read < unsigned_tx < signs) and official servers. Read-only.',
+      inputSchema: {
+        capability: z.string().min(1).describe('Capability id or group, e.g. "lend.borrow" or "lend"'),
+        asset: z.string().optional().describe('Only venues listing this asset ticker, e.g. "iUSD"'),
+        venue: z.string().optional().describe('Only this venue id, e.g. "liqwid"'),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ capability, asset, venue }) =>
+      toolResult(async () => findCapability({ capability, asset, venue }, here)),
+  );
+
+  server.registerTool(
+    'get_mcp',
+    {
+      title: 'Get one MCP server record',
+      description:
+        'Get the taxonomy record for one MCP server by id (ids come from find_capability paths): publisher, ' +
+        'whether it is official, auth, its classified tools, and `connect` — the ready-to-paste client config ' +
+        'to hand the user so they can add it. Read-only.',
+      inputSchema: {
+        id: z.string().min(1).describe('MCP id, e.g. "cardano-defi-mcp"'),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ id }) =>
+      toolResult(async () => {
+        const record = getMcp(id);
+        if (!record) {
+          throw new Error(`Unknown MCP '${id}'. MCP ids appear in find_capability results.`);
+        }
+        return record;
       }),
   );
 }

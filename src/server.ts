@@ -20,10 +20,12 @@ export function createMcpServer(): McpServer {
     { name: 'cardano-defi-mcp', version: '0.1.0' },
     {
       instructions:
-        'Cardano DeFi rails: browse a taxonomy of Cardano venues, quote cross-chain swaps into ADA through ' +
+        'Cardano DeFi rails: browse a taxonomy of Cardano venues and MCP tools, quote cross-chain swaps into ADA through ' +
         'the BazaarSwap routing backend, read balances and Indigo/Liqwid positions, and build UNSIGNED ' +
         'transactions. This server holds no keys and no funds; every fund-touching tool returns a transaction ' +
         'for you to sign and submit yourself. ' +
+        'To learn which venues or MCP tools can do something (borrow, swap, mint…), call find_capability ' +
+        'first; it marks the tools callable on this server as here. ' +
         "Conventions: amounts are in the token's smallest unit (USDC and ADA both use 6 decimals); " +
         'Cardano\'s chain id is the string "CARDANO" and native ADA is the zero address. ' +
         'Reliability: the quote backend sleeps when idle — if get_quote returns zero routes, that is ' +

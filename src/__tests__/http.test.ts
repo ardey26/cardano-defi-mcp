@@ -13,6 +13,9 @@ import { createMcpServer } from '../server.js';
 const EXPECTED_TOOLS = [
   'list_venues',
   'get_venue',
+  'list_capabilities',
+  'find_capability',
+  'get_mcp',
   'get_quote',
   'build_swap_tx',
   'get_balance',
@@ -77,7 +80,7 @@ describe('Streamable HTTP transport', () => {
     expect(message.result.serverInfo.name).toBe('cardano-defi-mcp');
   });
 
-  it('lists the nine tools without a session id', async () => {
+  it('lists the twelve tools without a session id', async () => {
     const { status, body } = await rpc(base, { jsonrpc: '2.0', id: 2, method: 'tools/list' });
 
     expect(status).toBe(200);

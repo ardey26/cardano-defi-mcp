@@ -3,7 +3,7 @@
  * onboarding behind a single MCP connection.
  *
  * `claude mcp add cardano-defi -- npx -y github:ardey26/cardano-defi-mcp` spawns
- * this. It is the keyless server's nine tools PLUS the wallet's signing tools
+ * this. It is the keyless server's twelve tools PLUS the wallet's signing tools
  * PLUS setup_wallet / configure, so an agent can take a user from nothing
  * installed to a funded, capped, working wallet without them editing a file.
  *
@@ -12,12 +12,13 @@
  * does in server.ts — the combined mode is not a loophole around it.
  *
  * The hosted deployment is unaffected: nothing in dist/ imports this file, and
- * `node dist/server.js` still starts the keyless nine-tool server.
+ * `node dist/server.js` still starts the keyless twelve-tool server.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
+import { SELF_MCP_ID, WALLET_MCP_ID } from '../taxonomy/self.js';
 import { registerTools } from '../tools/index.js';
 import { bootstrapCli, hasCardanoKey, hasEvmKey } from './keys.js';
 import { registerOnboardingTools } from './onboarding.js';
@@ -36,6 +37,8 @@ export function createCombinedServer(): McpServer {
         'and Indigo/Liqwid positions. Build tools return UNSIGNED transactions; the wallet tools in this same ' +
         'server sign and submit them from a local burner key, WITH NO HUMAN CONFIRMATION, bounded only by ' +
         'per-transaction and rolling-24h spending caps per chain family plus an EVM chain allowlist. ' +
+        'To learn which venues or MCP tools can do something (borrow, swap, mint…), call find_capability ' +
+        'first; it marks the tools callable on this server as here. ' +
         'FIRST RUN: call wallet_status. If it reports no keys, call setup_wallet and show the user the ' +
         'addresses and the funding note it returns. If a tool says a setting is missing, it names the exact ' +
         'call that fixes it — usually configure with blockfrostProjectId (free at https://blockfrost.io). ' +
@@ -49,7 +52,7 @@ export function createCombinedServer(): McpServer {
     },
   );
 
-  registerTools(server);
+  registerTools(server, [SELF_MCP_ID, WALLET_MCP_ID]);
   registerWalletTools(server);
   registerOnboardingTools(server);
   return server;
