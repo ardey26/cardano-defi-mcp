@@ -5,7 +5,6 @@ import { z } from 'zod';
 import {
   CapabilityNodeSchema,
   VenueSchema,
-  type Capability,
   type CapabilityNode,
   type Category,
   type Venue,
@@ -19,7 +18,8 @@ export const TAXONOMY_ROOT = fileURLToPath(new URL('../../taxonomy', import.meta
 export interface VenueFilter {
   category?: Category;
   asset?: string;
-  capability?: Capability;
+  /** A capability id or group, e.g. "lend.borrow" or "lend". */
+  capability?: string;
 }
 
 function readJson(path: string, label: string): unknown {
@@ -69,11 +69,20 @@ export function matchesCapability(id: string, query: string): boolean {
 }
 
 export function loadVenues(root = TAXONOMY_ROOT): Venue[] {
-  return readRecords(join(root, 'venues'), VenueSchema, 'venue').map(({ record }) => record);
+  const known = new Set(loadCapabilities(root).map((c) => c.id));
+  return readRecords(join(root, 'venues'), VenueSchema, 'venue').map(({ file, record }) => {
+    const unknown = record.capabilities.filter((c) => !known.has(c));
+    if (unknown.length > 0) {
+      throw new Error(
+        `Invalid venue file ${file}: ${unknown.map((c) => `'${c}'`).join(', ')} not in capabilities.json`,
+      );
+    }
+    return record;
+  });
 }
 
-export function listVenues(filter?: VenueFilter): Venue[] {
-  let venues = loadVenues();
+export function listVenues(filter?: VenueFilter, root = TAXONOMY_ROOT): Venue[] {
+  let venues = loadVenues(root);
   if (!filter) return venues;
 
   if (filter.category) {
@@ -84,20 +93,21 @@ export function listVenues(filter?: VenueFilter): Venue[] {
     venues = venues.filter((v) => v.assets.some((a) => a.toLowerCase() === asset));
   }
   if (filter.capability) {
-    venues = venues.filter((v) => v.capabilities.includes(filter.capability!));
+    const query = filter.capability.trim().toLowerCase();
+    venues = venues.filter((v) => v.capabilities.some((c) => matchesCapability(c, query)));
   }
   return venues;
 }
 
-export function getVenue(id: string): Venue | undefined {
-  return loadVenues().find((v) => v.id === id);
+export function getVenue(id: string, root = TAXONOMY_ROOT): Venue | undefined {
+  return loadVenues(root).find((v) => v.id === id);
 }
 
-export function searchVenues(q: string): Venue[] {
+export function searchVenues(q: string, root = TAXONOMY_ROOT): Venue[] {
   const needle = q.trim().toLowerCase();
   if (!needle) return [];
 
-  return loadVenues().filter((v) =>
+  return loadVenues(root).filter((v) =>
     [v.id, v.name, v.description, ...v.assets].some((field) =>
       field.toLowerCase().includes(needle),
     ),

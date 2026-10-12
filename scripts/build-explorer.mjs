@@ -56,4 +56,4 @@ await writeFile(join(ROOT, "docs", "taxonomy.json"), bundle);
 
 console.log(`docs/taxonomy.json — ${venues.length} venues, ${bundle.length} bytes`);
 console.log(`docs/index.html — ${venues.length} venues, ${html.length} bytes`);
-for (const v of venues) console.log(`  ${v.integration.padEnd(12)} ${v.category.padEnd(12)} ${v.id}`);
+for (const v of venues) console.log(`  ${v.category.padEnd(12)} ${v.id}`);

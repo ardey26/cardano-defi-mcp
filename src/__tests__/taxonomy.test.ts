@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getVenue, listVenues, loadVenues, searchVenues } from '../taxonomy/index.js';
 import { VenueSchema } from '../taxonomy/schema.js';
+import { venue, writeTaxonomy } from './fixtures.js';
 
 const EXPECTED_IDS = [
   'minswap',
@@ -29,18 +30,6 @@ describe('loadVenues', () => {
       expect(VenueSchema.safeParse(venue).success).toBe(true);
     }
   });
-
-  it('assigns the documented integration levels', () => {
-    expect(getVenue('indigo')?.integration).toBe('adapter_live');
-    expect(getVenue('liqwid')?.integration).toBe('read_only');
-    // Only the curated set is pinned; community-added venues choose their own
-    // (schema-valid) level, though 'indexed' is the norm for a new entry.
-    for (const id of EXPECTED_IDS) {
-      if (id !== 'indigo' && id !== 'liqwid') {
-        expect(getVenue(id)?.integration).toBe('indexed');
-      }
-    }
-  });
 });
 
 describe('listVenues', () => {
@@ -63,21 +52,33 @@ describe('listVenues', () => {
     expect(listVenues({ asset: 'iUSD' }).map((v) => v.id)).toContain('indigo');
   });
 
-  it('filters by capability', () => {
-    const borrowers = listVenues({ capability: 'borrow' });
+  it('filters by capability id', () => {
+    const borrowers = listVenues({ capability: 'lend.borrow' });
     expect(borrowers.map((v) => v.id)).toContain('liqwid');
-    expect(borrowers.every((v) => v.capabilities.includes('borrow'))).toBe(true);
+    expect(borrowers.every((v) => v.capabilities.includes('lend.borrow'))).toBe(true);
 
-    const perps = listVenues({ capability: 'perps' });
-    expect(perps.map((v) => v.id)).toEqual(['strike-finance']);
+    expect(listVenues({ capability: 'trade.perps' }).map((v) => v.id)).toEqual(['strike-finance']);
+  });
+
+  it('filters by capability group', () => {
+    const lend = listVenues({ capability: 'lend' }).map((v) => v.id);
+    expect(lend).toContain('liqwid');
+    expect(lend).toContain('fluidtokens');
+    expect(lend).not.toContain('minswap');
+  });
+
+  it('normalizes case and whitespace in the capability filter', () => {
+    expect(listVenues({ capability: '  LEND.Borrow ' }).map((v) => v.id)).toEqual(
+      listVenues({ capability: 'lend.borrow' }).map((v) => v.id),
+    );
   });
 
   it('combines filters', () => {
-    const result = listVenues({ category: 'dex', capability: 'swap', asset: 'ADA' });
+    const result = listVenues({ category: 'dex', capability: 'trade.swap', asset: 'ADA' });
     expect(result.length).toBeGreaterThan(0);
     expect(
       result.every(
-        (v) => v.category === 'dex' && v.capabilities.includes('swap') && v.assets.includes('ADA'),
+        (v) => v.category === 'dex' && v.capabilities.includes('trade.swap') && v.assets.includes('ADA'),
       ),
     ).toBe(true);
   });
@@ -122,5 +123,22 @@ describe('searchVenues', () => {
   it('returns an empty array for no match and for a blank query', () => {
     expect(searchVenues('zzzzzzzz')).toEqual([]);
     expect(searchVenues('   ')).toEqual([]);
+  });
+});
+
+describe('venue validation', () => {
+  it('rejects a leftover v1 integration field', () => {
+    const root = writeTaxonomy({ venues: { alpha: venue('alpha', { integration: 'indexed' }) } });
+    expect(() => loadVenues(root)).toThrow(/venue file alpha\.json.*integration/);
+  });
+
+  it('rejects a v1 flat capability', () => {
+    const root = writeTaxonomy({ venues: { alpha: venue('alpha', { capabilities: ['borrow'] }) } });
+    expect(() => loadVenues(root)).toThrow(/venue file alpha\.json: capabilities\.0/);
+  });
+
+  it('rejects a well-formed capability that is not in the tree', () => {
+    const root = writeTaxonomy({ venues: { alpha: venue('alpha', { capabilities: ['lend.flash'] }) } });
+    expect(() => loadVenues(root)).toThrow(/venue file alpha\.json: .*'lend\.flash'.*capabilities\.json/);
   });
 });

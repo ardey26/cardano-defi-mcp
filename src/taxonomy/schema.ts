@@ -19,38 +19,17 @@ export const CapabilityNodeSchema = z.strictObject({
   description: z.string().min(1),
 });
 
-export const CapabilitySchema = z.enum([
-  'swap',
-  'liquidity_provision',
-  'supply',
-  'borrow',
-  'cdp_mint',
-  'stability_pool',
-  'staking',
-  'perps',
-  'stablecoin_mint',
-]);
-
-export const IntegrationSchema = z.enum([
-  'indexed',
-  'adapter_live',
-  'read_only',
-]);
-
-export const VenueSchema = z.object({
+export const VenueSchema = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1),
   category: CategorySchema,
   url: z.string().url(),
   description: z.string().min(1),
   assets: z.array(z.string().min(1)),
-  capabilities: z.array(CapabilitySchema).min(1),
-  integration: IntegrationSchema,
-  notes: z.string().optional(),
+  capabilities: z.array(CapabilityIdSchema).min(1),
+  notes: z.string().min(1).optional(),
 });
 
 export type Category = z.infer<typeof CategorySchema>;
-export type Capability = z.infer<typeof CapabilitySchema>;
-export type Integration = z.infer<typeof IntegrationSchema>;
 export type Venue = z.infer<typeof VenueSchema>;
 export type CapabilityNode = z.infer<typeof CapabilityNodeSchema>;
