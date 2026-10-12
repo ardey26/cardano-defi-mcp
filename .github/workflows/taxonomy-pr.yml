@@ -6,16 +6,18 @@ on:
     # so the check flips green without needing a new push.
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
-      - 'taxonomy/venues/**'
+      - 'taxonomy/**'
 
 permissions:
   contents: read
 
 jobs:
-  # A venue PR merges only with the maintainer-applied 'taxonomy-addition'
+  # A taxonomy PR merges only with the maintainer-applied 'taxonomy-addition'
   # label. Contributors cannot label their own fork PRs, so this is the
-  # explicit human sign-off on every registry change; schema validation
-  # below still runs regardless, so contributors get feedback immediately.
+  # explicit human sign-off on every registry change — including that an MCP
+  # tool really does what its capability says, which no check can verify.
+  # Schema validation below still runs regardless, so contributors get
+  # feedback immediately.
   label-gate:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +27,7 @@ jobs:
         run: |
           case "$HEAD_REF" in
             taxonomy/*) echo "branch prefix ok: $HEAD_REF" ;;
-            *) echo "::error::Venue PRs must come from a branch named taxonomy/<something> (got '$HEAD_REF')."; exit 1 ;;
+            *) echo "::error::Taxonomy PRs must come from a branch named taxonomy/<something> (got '$HEAD_REF')."; exit 1 ;;
           esac
       - name: Require the taxonomy-addition label
         env:
@@ -33,7 +35,7 @@ jobs:
         run: |
           case ",$LABELS," in
             *,taxonomy-addition,*) echo "label present" ;;
-            *) echo "::error::This PR changes taxonomy/venues/ but does not carry the 'taxonomy-addition' label. A maintainer must apply it before merge."; exit 1 ;;
+            *) echo "::error::This PR changes taxonomy/ but does not carry the 'taxonomy-addition' label. A maintainer must apply it before merge."; exit 1 ;;
           esac
 
   validate:
@@ -48,11 +50,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run validate:taxonomy
-      - run: npx vitest run src/__tests__/taxonomy.test.ts
+      - run: >-
+          npx vitest run
+          src/__tests__/capabilities.test.ts
+          src/__tests__/taxonomy.test.ts
+          src/__tests__/mcps.test.ts
+          src/__tests__/find.test.ts
+          src/__tests__/validate-taxonomy.test.ts
 
       # Step summary rather than a PR comment: the token on a fork PR is
       # read-only, so the comment API would fail for outside contributors.
-      - name: Summarize venue changes
+      - name: Summarize taxonomy changes
         if: always()
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -67,11 +75,36 @@ jobs:
                   node -e '
                     const fs = require("node:fs");
                     const [file, change] = process.argv.slice(1);
-                    const label = change === "A" ? "added" : "modified";
                     let v = {};
                     try { v = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
                     const caps = Array.isArray(v.capabilities) ? v.capabilities.join(", ") : "";
-                    console.log(`| ${file} | ${label} | ${v.name ?? "?"} | ${v.category ?? "?"} | ${caps} |`);
+                    console.log(`| ${file} | ${change === "A" ? "added" : "modified"} | ${v.name ?? "?"} | ${v.category ?? "?"} | ${caps} |`);
                   ' "$path" "$change"
                 done
+            echo
+            echo "## MCP changes"
+            echo
+            echo "| File | Change | Name | Publisher | Official | Tools (capability, effect) |"
+            echo "| --- | --- | --- | --- | --- | --- |"
+            git diff --name-status --diff-filter=AM "$BASE_SHA" HEAD -- taxonomy/mcps \
+              | while read -r change path; do
+                  node -e '
+                    const fs = require("node:fs");
+                    const [file, change] = process.argv.slice(1);
+                    let m = {};
+                    try { m = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+                    const tools = Array.isArray(m.tools)
+                      ? m.tools.map((t) => `${t.name} (${t.capability}, ${t.effect})`).join("<br>")
+                      : "";
+                    console.log(`| ${file} | ${change === "A" ? "added" : "modified"} | ${m.name ?? "?"} | ${m.publisher ?? "?"} | ${m.official ?? "?"} | ${tools} |`);
+                  ' "$path" "$change"
+                done
+            if ! git diff --quiet "$BASE_SHA" HEAD -- taxonomy/capabilities.json; then
+              echo
+              echo "## Capability tree changed"
+              echo
+              echo '```diff'
+              git diff "$BASE_SHA" HEAD -- taxonomy/capabilities.json | tail -n +5
+              echo '```'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
