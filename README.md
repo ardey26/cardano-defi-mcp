@@ -2,9 +2,10 @@
 
 Open-source proof of concept for the **Cardano PRIME** grant. Two things in one small package:
 
-1. **A taxonomy index of Cardano DeFi venues** — 11 hand-researched venue records (DEXes, lending,
-   CDPs, stablecoins, perps) with categories, assets, capabilities and honest caveats, validated by a
-   zod schema.
+1. **A taxonomy of what AI agents can do in Cardano DeFi** — one capability tree (`lend.borrow`,
+   `trade.swap`, `mint.cdp`, …) that classifies both hand-researched venue records and the MCP servers
+   whose tools can act at those venues, each tool tagged with whether it reads, returns an unsigned
+   transaction, or signs. Validated by zod schemas and a dependency-free PR check.
 2. **An MCP server** that gives an AI agent rails into Cardano DeFi: discover venues, get cross-chain
    swap quotes into ADA, read balances and positions, and receive **unsigned** transactions the agent
    signs with its own keys.
@@ -157,12 +158,15 @@ registration if you would rather keep the keyless server and the wallet apart.
 
 ## Tools
 
-The keyless server registers the first nine. The combined CLI server registers all sixteen.
+The keyless server registers the first twelve. The combined CLI server registers all nineteen.
 
 | Tool | What it does | Funds |
 | --- | --- | --- |
-| `list_venues` | List/filter indexed venues by category, asset, capability, or free-text `query` | read-only |
+| `list_venues` | List/filter indexed venues by category, asset, capability id or group, or free-text `query` | read-only |
 | `get_venue` | Full taxonomy record for one venue id | read-only |
+| `list_capabilities` | The capability tree with venue and MCP-tool counts per node | read-only |
+| `find_capability` | Venues offering a capability, MCP tool paths ranked best first (`here` = callable on this server), and gaps | read-only |
+| `get_mcp` | One MCP server record, including the `connect` config to hand the user | read-only |
 | `get_quote` | Race the BazaarSwap backend for cross-chain routes; returns `best` + `all` by net output | read-only |
 | `build_swap_tx` | Turn a `quoteId` into transaction data | **unsigned** |
 | `get_balance` | ADA + native-asset balance of a Cardano address (Blockfrost) | read-only |
@@ -233,8 +237,10 @@ runs and what `serve-http` starts. The wallet's model is [further down](#agent-w
 
 ```
 bin/cli.mjs                 the npx entry point: combined | wallet | serve-http
+taxonomy/capabilities.json  the capability tree (two-level ids)
 taxonomy/venues/*.json      one file per venue, validated by VenueSchema
-src/taxonomy/               zod schema + loadVenues / listVenues / getVenue / searchVenues
+taxonomy/mcps/*.json        one file per MCP server, tools classified by capability + effect
+src/taxonomy/               zod schemas, loaders, find_capability logic, this repo's own MCP ids
 src/adapters/               blockfrost, liqwid, indigo, swap (BazaarSwap API client)
 src/tools/                  MCP tool registrations (thin: parse -> adapter -> JSON text)
 src/server.ts               McpServer wiring + transport selection (stdio | http)
@@ -266,7 +272,7 @@ implementation deviates from the original design and why.
 
 ## Taxonomy explorer
 
-`scripts/build-explorer.mjs` renders the venue records into a static page plus a machine-readable
+`scripts/build-explorer.mjs` renders the taxonomy into a static page plus a machine-readable
 `taxonomy.json` bundle. The output is generated, not committed — `docs/` is gitignored.
 
 ```bash
@@ -277,22 +283,30 @@ The published version is built and deployed to GitHub Pages by `.github/workflow
 every push to `main` that touches `taxonomy/` or `scripts/`. This requires the repository's
 **Settings → Pages → Source** to be set to **GitHub Actions**.
 
-## Add your protocol
+## Add your protocol or MCP server
 
-The taxonomy is a community registry — a venue is one JSON file, and adding one takes a PR.
+The taxonomy is a community registry — a venue or an MCP server is one JSON file, and adding one
+takes a PR.
 
 1. Fork the repo and create a branch named `taxonomy/<something>` (e.g. `taxonomy/add-myvenue`) —
    the PR gate rejects other branch names.
-2. Add `taxonomy/venues/<id>.json`. The filename (minus `.json`) must equal the record's `id`, and
-   the record must match [`src/taxonomy/schema.ts`](src/taxonomy/schema.ts). Copy an existing file
-   such as `taxonomy/venues/minswap.json` as a starting point.
-3. Run `npm run validate:taxonomy` locally — it needs no dependencies and names every problem.
-4. Open a PR. CI validates the file and prints a summary of what changed. A maintainer applies the
+2. Add a venue as `taxonomy/venues/<id>.json`, or an MCP server as `taxonomy/mcps/<id>.json`. The
+   filename (minus `.json`) must equal the record's `id`, and the record must match
+   [`src/taxonomy/schema.ts`](src/taxonomy/schema.ts). Copy `taxonomy/venues/minswap.json` or
+   `taxonomy/mcps/cardano-defi-mcp.json` as a starting point. Capabilities must be ids from
+   `taxonomy/capabilities.json`; propose a new node in the same PR if none fits.
+3. For an MCP server, take tool names from a real `tools/list` run, not the README:
+   `node scripts/mcp-tools.mjs --connect '<your connect JSON>'`. Mark `official: true` only if you
+   operate the venues it acts on, and `effect: signs` for any tool that submits with a key the
+   server holds.
+4. Run `npm run validate:taxonomy` locally — it needs no dependencies and names every problem.
+5. Open a PR. CI validates the files and prints a summary of what changed. A maintainer applies the
    `taxonomy-addition` label after review; the PR cannot merge without it.
 
 Keep `notes` honest: say what you verified and what you did not. Asset lists are expected to be
-directional rather than exhaustive. On merge, the explorer and `taxonomy.json` republish
-automatically.
+directional rather than exhaustive. On merge, the explorer and the v2 `taxonomy.json` bundle (capabilities,
+venues and MCPs) republish automatically. A weekly job re-runs `tools/list` against every listed MCP
+server and opens an issue when one drifts.
 
 ## Try the reference agent
 

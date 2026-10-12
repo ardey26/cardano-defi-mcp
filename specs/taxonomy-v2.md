@@ -1,6 +1,6 @@
 # Taxonomy v2 — capabilities, venues, MCPs
 
-Status: draft spec, no code yet.
+Status: implemented (see specs/plans/2026-10-13-taxonomy-v2.md).
 
 ## Goal
 

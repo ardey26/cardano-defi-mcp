@@ -9,9 +9,13 @@ holds funds and never signs anything.
 ## Layout (single npm package, ESM, strict TS)
 
 ```
+taxonomy/capabilities.json  # the capability tree (two-level ids)
 taxonomy/venues/*.json      # one file per venue, validated by VenueSchema
-src/taxonomy/schema.ts      # zod VenueSchema + Category/Capability enums
-src/taxonomy/index.ts       # loadVenues / listVenues / getVenue / searchVenues
+taxonomy/mcps/*.json        # one file per MCP server, tools classified by capability + effect
+src/taxonomy/schema.ts      # zod schemas: capability node, venue, MCP record
+src/taxonomy/index.ts       # loaders + cross-checks, listVenues / getVenue / searchVenues / getMcp
+src/taxonomy/find.ts        # findCapability / listCapabilities
+src/taxonomy/self.ts        # this repo's MCP ids + meta tools
 src/adapters/blockfrost.ts  # getBalance(address)
 src/adapters/liqwid.ts      # getMarkets() / getPositions(address)  [read-only GraphQL]
 src/adapters/indigo.ts      # getPositions(address) / buildOpenCdp / buildCloseCdp  [indigo-sdk]
@@ -26,12 +30,17 @@ src/__tests__/              # vitest
 ## Contracts (what each module must export)
 
 ### taxonomy
-- `Category = 'dex' | 'lending' | 'cdp' | 'stablecoin' | 'derivatives'`
-- `Capability = 'swap' | 'liquidity_provision' | 'supply' | 'borrow' | 'cdp_mint' | 'stability_pool' | 'staking' | 'perps' | 'stablecoin_mint'`
-- `VenueSchema`: `{ id, name, category, url, description, assets: string[], capabilities: Capability[], integration: 'indexed' | 'adapter_live' | 'read_only', notes?: string }`
-- `loadVenues(): Venue[]` (reads + zod-validates all JSON), `listVenues(filter?: { category?, asset?, capability? })`, `getVenue(id)`, `searchVenues(q)`.
-- Venues (11): minswap, dano-finance, wingriders, splash, sundaeswap, liqwid (read_only),
-  fluidtokens, indigo (adapter_live), realfi, djed, strike-finance.
+- Records: `taxonomy/capabilities.json` (array of `{ id: "group.action", label, description }`),
+  `taxonomy/venues/<id>.json`, `taxonomy/mcps/<id>.json`. All strict: unknown fields are errors.
+- `VenueSchema`: `{ id, name, category, url, description, assets: string[], capabilities: CapabilityId[], notes? }`
+- `McpSchema`: `{ id, name, publisher, official, repo, connect: (stdio{command,args} | http{url})[], auth: 'none'|'api_key'|'oauth', tools: { name, capability, venues?, effect: 'read'|'unsigned_tx'|'signs', notes? }[], notes? }`
+- Loaders (each takes an optional `root`): `loadCapabilities`, `loadVenues`, `loadMcps` (cross-check
+  capability and venue ids), `listVenues(filter?: { category?, asset?, capability? })` where
+  `capability` is an id or group, `getVenue`, `searchVenues`, `getMcp`, `matchesCapability`.
+- `find.ts`: `findCapability({ capability, asset?, venue? }, here)` → `{ venues, paths, gaps }`, paths
+  ranked here → lower effect → official; `listCapabilities()` with counts.
+- `self.ts`: `SELF_MCP_ID`, `WALLET_MCP_ID`, `META_TOOLS`. `mcps.test.ts` fails if either server
+  registers a non-meta tool its entry does not classify, or the entry lists a tool it does not register.
 
 ### adapters
 - `blockfrost.getBalance(address) -> { address, lovelace: string, ada: number, assets: [{ unit, quantity }] }`
