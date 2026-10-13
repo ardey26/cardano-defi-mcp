@@ -22,6 +22,8 @@ export interface TaxonomyFixture {
   mcps?: Record<string, unknown>;
   /** Keyed by MCP id; written to snapshots/<id>.json. */
   snapshots?: Record<string, unknown>;
+  /** Keyed by MCP id; each value maps a filename to JSON content under locks/<id>/. */
+  locks?: Record<string, Record<string, unknown>>;
 }
 
 export function writeTaxonomy(fx: TaxonomyFixture = {}): string {
@@ -40,6 +42,10 @@ export function writeTaxonomy(fx: TaxonomyFixture = {}): string {
     for (const [id, snapshot] of Object.entries(fx.snapshots)) {
       writeFileSync(join(root, 'snapshots', `${id}.json`), JSON.stringify(snapshot));
     }
+  }
+  for (const [id, files] of Object.entries(fx.locks ?? {})) {
+    mkdirSync(join(root, 'locks', id), { recursive: true });
+    for (const [name, content] of Object.entries(files)) writeFileSync(join(root, 'locks', id, name), JSON.stringify(content));
   }
   return root;
 }

@@ -108,6 +108,33 @@ describe('validate-taxonomy.mjs', () => {
     expect(r.stderr).toMatch(/mcps\/m\.json connect\[0\]: npx argument "--registry=https:\/\/evil\.example" is not allowed/);
   });
 
+  it('requires a committed lockfile whose root matches the pins and whose packages all come from the npm registry', () => {
+    const connect = [{ transport: 'stdio', command: 'npx', args: ['-y', 'm-mcp@1.0.0'] }];
+    const tools = [{ name: 't', capability: 'lend.borrow', effect: 'read' }];
+    const snapshots = { m: { mcp: 'm', packages: ['m-mcp@1.0.0'], captured: '2026-10-14', tools: [{ name: 't', description: 'd', inputSchema: { type: 'object' } }] } };
+    const missing = validate(writeTaxonomy({ mcps: { m: mcp('m', { connect, tools }) }, snapshots }));
+    expect(missing.stderr).toMatch(/mcps\/m\.json: missing lockfile locks\/m\/package-lock\.json/);
+    const bad = validate(writeTaxonomy({
+      mcps: { m: mcp('m', { connect, tools }) },
+      snapshots,
+      locks: {
+        m: {
+          'package.json': { name: 'gateway-m', private: true, dependencies: { 'm-mcp': '1.0.1' } },
+          'package-lock.json': {
+            lockfileVersion: 3,
+            packages: {
+              '': { dependencies: { 'm-mcp': '1.0.1' } },
+              'node_modules/m-mcp': { version: '1.0.1', resolved: 'https://registry.npmjs.org/m-mcp/-/m-mcp-1.0.1.tgz', integrity: 'sha512-x' },
+              'node_modules/evil': { version: '1.0.0', resolved: 'git+https://example.com/evil.git' },
+            },
+          },
+        },
+      },
+    }));
+    expect(bad.stderr).toMatch(/locks\/m\/package\.json: dependencies .* do not match the pinned packages/);
+    expect(bad.stderr).toMatch(/locks\/m\/package-lock\.json: node_modules\/evil must resolve from https:\/\/registry\.npmjs\.org\/ with an integrity hash/);
+  });
+
   it('rejects a filename that does not match the id', () => {
     const r = validate(writeTaxonomy({ venues: { alpha: venue('beta') } }));
     expect(r.status).toBe(1);

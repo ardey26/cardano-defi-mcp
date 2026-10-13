@@ -10,6 +10,7 @@ import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/
 
 import { TAXONOMY_ROOT, loadSnapshot } from '../taxonomy/index.js';
 import { exposedName, gatewayMcps } from './eligibility.js';
+import { installUpstream } from './install.js';
 import { DEFAULT_UPSTREAM_OPTIONS, Upstream, type UpstreamOptions } from './upstream.js';
 
 export type GatewayCalls = Map<string, string>;
@@ -77,7 +78,13 @@ function prepare(root: string, options: GatewayOptions): Prepared {
 
   for (const { mcp, connect, tools } of gatewayMcps(root)) {
     const snapshot = loadSnapshot(mcp.id, root);
-    const upstream = new Upstream(mcp.id, options.connectOverride?.(mcp.id) ?? connect, { ...DEFAULT_UPSTREAM_OPTIONS, ...options.upstream });
+    const upstreamOptions = { ...DEFAULT_UPSTREAM_OPTIONS, ...options.upstream };
+    // Runs the committed lockfile's tree with node; the record's npx command is for humans.
+    const upstream = new Upstream(
+      mcp.id,
+      options.connectOverride?.(mcp.id) ?? (() => installUpstream(mcp.id, connect, root, upstreamOptions.cacheDir)),
+      upstreamOptions,
+    );
     upstreams.push(upstream);
     for (const tool of tools) {
       const entry = snapshot.tools.find((t) => t.name === tool.name);

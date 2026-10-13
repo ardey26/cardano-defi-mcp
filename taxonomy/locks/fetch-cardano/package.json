@@ -1,0 +1,7 @@
+{
+  "name": "gateway-fetch-cardano",
+  "private": true,
+  "dependencies": {
+    "@fetchswap/cardano-mcp": "0.1.0"
+  }
+}

@@ -3,6 +3,9 @@
 //
 //   node scripts/mcp-tools.mjs --connect '{"transport":"http","url":"https://…/mcp"}'
 //       print the server's tool names, one per line (for writing a taxonomy/mcps/ entry)
+//   node scripts/mcp-tools.mjs --lock <id>
+//       write taxonomy/locks/<id>/ (package.json + package-lock.json) for the pinned
+//       packages: the whole dependency tree the gateway installs. Runs no package code.
 //   node scripts/mcp-tools.mjs --snapshot <id>
 //       write taxonomy/snapshots/<id>.json: the name, description and dereferenced
 //       input schema of every tool the gateway exposes, at the pinned packages
@@ -17,6 +20,7 @@
 
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { execFile } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -121,6 +125,29 @@ async function cleanEnv() {
 
 const exposed = (tool) => tool.effect !== "signs" && !tool.env;
 
+/** Writes taxonomy/locks/<id>/: a package.json of the pinned packages and its full lockfile. Runs no package code. */
+async function lock(id) {
+  const mcp = JSON.parse(await readFile(join(MCP_DIR, `${id}.json`), "utf8"));
+  const connect = mcp.connect.find((c) => c.transport === "stdio" && c.command === "npx" && parseNpxArgs(c.args));
+  if (!connect) throw new Error(`${id} has no accepted npx stdio connect entry to lock`);
+  const dir = join(ROOT, "taxonomy", "locks", id);
+  await mkdir(dir, { recursive: true });
+  const dependencies = Object.fromEntries(
+    packageSpecs(connect.args).map((spec) => [spec.slice(0, spec.lastIndexOf("@")), spec.slice(spec.lastIndexOf("@") + 1)]),
+  );
+  await writeFile(join(dir, "package.json"), `${JSON.stringify({ name: `gateway-${id}`, private: true, dependencies }, null, 2)}\n`);
+  await new Promise((resolve, reject) => {
+    execFile(
+      "npm",
+      ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"],
+      { cwd: dir, env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", npm_config_ignore_scripts: "true" } },
+      (err) => (err ? reject(err) : resolve()),
+    );
+  });
+  const lockfile = JSON.parse(await readFile(join(dir, "package-lock.json"), "utf8"));
+  console.log(`wrote taxonomy/locks/${id}/ (${Object.keys(lockfile.packages).length - 1} packages)`);
+}
+
 async function snapshot(id) {
   const mcp = JSON.parse(await readFile(join(MCP_DIR, `${id}.json`), "utf8"));
   const connect = mcp.connect.find((c) => c.transport === "stdio" && c.command === "npx");
@@ -186,16 +213,18 @@ async function check(out) {
 }
 
 const { values } = parseArgs({
-  options: { connect: { type: "string" }, check: { type: "boolean" }, out: { type: "string" }, snapshot: { type: "string" } },
+  options: { connect: { type: "string" }, check: { type: "boolean" }, out: { type: "string" }, snapshot: { type: "string" }, lock: { type: "string" } },
 });
 
 if (values.connect) {
   for (const name of await listTools(JSON.parse(values.connect))) console.log(name);
+} else if (values.lock) {
+  await lock(values.lock);
 } else if (values.snapshot) {
   await snapshot(values.snapshot);
 } else if (values.check) {
   await check(values.out);
 } else {
-  console.error("usage: mcp-tools.mjs --connect '<connect JSON>' | --snapshot <id> | --check [--out <file>]");
+  console.error("usage: mcp-tools.mjs --connect '<connect JSON>' | --lock <id> | --snapshot <id> | --check [--out <file>]");
   process.exit(2);
 }

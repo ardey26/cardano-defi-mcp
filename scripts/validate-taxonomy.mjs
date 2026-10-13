@@ -265,6 +265,34 @@ function gatewayConnect(mcp) {
   });
 }
 
+const REGISTRY = "https://registry.npmjs.org/";
+
+/** Every package that runs must be the one reviewed: a lockfile rooted at the pins, all from the registry, all hashed. */
+async function checkLock(file, id, packages) {
+  const dir = `locks/${id}`;
+  let manifest, lock;
+  try {
+    manifest = JSON.parse(await readFile(join(TAXONOMY, dir, "package.json"), "utf8"));
+    lock = JSON.parse(await readFile(join(TAXONOMY, dir, "package-lock.json"), "utf8"));
+  } catch {
+    return fail(file, `missing lockfile ${dir}/package-lock.json (run node scripts/mcp-tools.mjs --lock ${id})`);
+  }
+  const want = Object.fromEntries(packages.map((spec) => [spec.slice(0, spec.lastIndexOf("@")), spec.slice(spec.lastIndexOf("@") + 1)]));
+  const deps = manifest?.dependencies ?? {};
+  if (JSON.stringify(Object.entries(deps).sort()) !== JSON.stringify(Object.entries(want).sort())) {
+    fail(`${dir}/package.json`, `dependencies ${JSON.stringify(deps)} do not match the pinned packages ${JSON.stringify(want)}`);
+  }
+  if (!(lock?.lockfileVersion >= 2) || !isObject(lock.packages)) {
+    return fail(`${dir}/package-lock.json`, "must be an npm lockfile, version 2 or later");
+  }
+  for (const [path, entry] of Object.entries(lock.packages)) {
+    if (path === "" || entry?.link) continue;
+    if (typeof entry?.resolved !== "string" || !entry.resolved.startsWith(REGISTRY) || typeof entry.integrity !== "string") {
+      fail(`${dir}/package-lock.json`, `${path} must resolve from ${REGISTRY} with an integrity hash`);
+    }
+  }
+}
+
 async function checkGateway(file, mcp) {
   const connect = gatewayConnect(mcp);
   const tools = Array.isArray(mcp.tools) ? mcp.tools.filter((t) => isObject(t) && t.effect !== "signs" && !t.env) : [];
@@ -289,6 +317,7 @@ async function checkGateway(file, mcp) {
   if (JSON.stringify(snapshot.packages) !== JSON.stringify(packages)) {
     fail(snapFile, `packages ${JSON.stringify(snapshot.packages)} do not match connect ${JSON.stringify(packages)}; re-run the snapshot`);
   }
+  await checkLock(file, mcp.id, packages);
   const have = (Array.isArray(snapshot.tools) ? snapshot.tools.map((t) => t?.name) : []).sort();
   const want = tools.map((t) => t.name).sort();
   if (JSON.stringify(have) !== JSON.stringify(want)) {

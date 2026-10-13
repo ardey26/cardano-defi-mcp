@@ -56,7 +56,8 @@ export class Upstream {
 
   constructor(
     readonly name: string,
-    private readonly connect: { command: string; args: string[] },
+    /** A fixed command, or a resolver run before each start (the lockfile install). */
+    private readonly connect: { command: string; args: string[] } | (() => Promise<{ command: string; args: string[] }>),
     private readonly options: UpstreamOptions,
   ) {}
 
@@ -67,9 +68,13 @@ export class Upstream {
   private async start(): Promise<Client> {
     if (this.client) return this.client;
     this.connecting ??= (async () => {
+      const target =
+        typeof this.connect === 'function'
+          ? await withTimeout(this.connect(), this.options.connectTimeoutMs, `installing ${this.name}`)
+          : this.connect;
       const transport = new StdioClientTransport({
-        command: this.connect.command,
-        args: this.connect.args,
+        command: target.command,
+        args: target.args,
         env: childEnv(this.options.cacheDir),
         stderr: 'ignore',
       });

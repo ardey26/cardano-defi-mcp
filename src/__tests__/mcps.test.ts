@@ -95,3 +95,23 @@ describe.each([
     expect(classified).toEqual(registered);
   });
 });
+
+describe('gateway in the key-holding server (review fix)', () => {
+  it('is off by default in the combined wallet server, and on only with GATEWAY=on', async () => {
+    const { createCombinedServer } = await import('../wallet/combined.js');
+    const before = process.env.GATEWAY;
+    try {
+      delete process.env.GATEWAY;
+      expect((await registeredToolNames(createCombinedServer())).filter((n) => n.includes('__'))).toEqual([]);
+      process.env.GATEWAY = 'on';
+      expect((await registeredToolNames(createCombinedServer())).some((n) => n.includes('__'))).toBe(true);
+    } finally {
+      if (before === undefined) delete process.env.GATEWAY;
+      else process.env.GATEWAY = before;
+    }
+  });
+
+  it('is on by default in the keyless server', async () => {
+    expect((await registeredToolNames(createMcpServer())).some((n) => n.includes('__'))).toBe(true);
+  });
+});

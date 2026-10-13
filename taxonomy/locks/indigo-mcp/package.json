@@ -1,0 +1,8 @@
+{
+  "name": "gateway-indigo-mcp",
+  "private": true,
+  "dependencies": {
+    "undici": "7.30.0",
+    "@indigoprotocol/indigo-mcp": "0.4.2"
+  }
+}

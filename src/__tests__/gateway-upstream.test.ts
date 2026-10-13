@@ -58,4 +58,13 @@ describe('Upstream', () => {
   it('childEnv sets only the documented variables', () => {
     expect(Object.keys(childEnv('/c')).sort()).toEqual(['HOME', 'PATH', 'npm_config_cache', 'npm_config_ignore_scripts', 'npm_config_update_notifier', 'npm_config_yes']);
   });
+
+  it('accepts an async connect resolver (the lockfile install) and runs it once', async () => {
+    let resolved = 0;
+    const u = new Upstream('Fake', async () => { resolved++; return connect; }, options);
+    open.push(u);
+    await u.call('pid', {});
+    await u.call('pid', {});
+    expect(resolved).toBe(1);
+  });
 });
