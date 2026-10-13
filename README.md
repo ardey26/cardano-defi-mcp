@@ -17,8 +17,9 @@ run through the gateway, and build with whichever provider quoted.
 Today the only provider is `bazaarswap-mcp`. BazaarSwap is the maintainer's own protocol: its
 routing backend is closed source, and its MCP client is
 [open](https://github.com/Fortress-Enterprises/bazaarswap-mcp). It was listed by the same reviewed
-PR as any other protocol and gets no ranking advantage. A competitor listed tomorrow joins the race
-with no code change here.
+PR as any other protocol. Quotes are ranked only by the net output each provider claims, with no
+preference for any provider. A competitor that implements the interface in `DESIGN.md` ("Cross-chain
+provider interface") joins the race when its listing is merged, with no code change here.
 
 ## Quickstart — one command
 

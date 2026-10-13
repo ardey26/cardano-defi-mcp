@@ -7,7 +7,12 @@ import { CategorySchema, getMcp, getVenue, listVenues, searchVenues } from '../t
 import { toolResult } from './result.js';
 
 /** `here` lists the taxonomy/mcps/ ids whose tools this server registers, so find_capability can mark them callable. */
-export function registerTaxonomyTools(server: McpServer, here: readonly string[], gatewayCalls: GatewayCalls = new Map()): void {
+export function registerTaxonomyTools(
+  server: McpServer,
+  here: readonly string[],
+  gatewayCalls: GatewayCalls = new Map(),
+  unavailable: ReadonlySet<string> = new Set(),
+): void {
   server.registerTool(
     'list_venues',
     {
@@ -92,7 +97,7 @@ export function registerTaxonomyTools(server: McpServer, here: readonly string[]
       annotations: { readOnlyHint: true },
     },
     async ({ capability, asset, venue }) =>
-      toolResult(async () => findCapability({ capability, asset, venue }, here, undefined, gatewayCalls)),
+      toolResult(async () => findCapability({ capability, asset, venue }, here, undefined, gatewayCalls, unavailable)),
   );
 
   server.registerTool(

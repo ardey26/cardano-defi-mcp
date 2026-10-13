@@ -1,7 +1,7 @@
 /**
  * viem plumbing for the EVM side of the wallet.
  *
- * Chains are mapped exactly as examples/execute-swap.ts maps them, plus Base;
+ * Chains are mapped as the cross-chain providers' quotes name them (Ethereum, Arbitrum), plus Base;
  * the policy allowlist (WALLET_EVM_CHAINS) decides which of them may actually
  * be signed for, so adding a chain here does not by itself widen the leash.
  *

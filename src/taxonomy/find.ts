@@ -70,6 +70,8 @@ export function findCapability(
   here: readonly string[],
   root = TAXONOMY_ROOT,
   gatewayCalls: ReadonlyMap<string, string> = new Map(),
+  /** "<mcp>/<tool>" registered here but unable to work right now (a router with no provider). */
+  unavailable: ReadonlySet<string> = new Set(),
 ): FindResult {
   const capability = query.capability.trim().toLowerCase();
   const nodes = loadCapabilities(root);
@@ -97,7 +99,7 @@ export function findCapability(
     for (const tool of server.tools) {
       if (!matchesCapability(tool.capability, capability)) continue;
       const via = gatewayCalls.get(`${server.id}/${tool.name}`);
-      const callable = here.includes(server.id) || via !== undefined;
+      const callable = (here.includes(server.id) || via !== undefined) && !unavailable.has(`${server.id}/${tool.name}`);
       const base = {
         capability: tool.capability,
         mcp: server.id,

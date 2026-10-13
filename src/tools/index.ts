@@ -4,7 +4,7 @@ import { registerGatewayTools } from '../gateway/register.js';
 import { SELF_MCP_ID } from '../taxonomy/self.js';
 import { registerCardanoTools } from './cardano.js';
 import { registerIndigoTools } from './indigo.js';
-import { registerSwapRouter } from './swap-router.js';
+import { registerSwapRouter, routerReady } from './swap-router.js';
 import { registerTaxonomyTools } from './taxonomy.js';
 
 /**
@@ -18,7 +18,9 @@ export function registerTools(
 ): void {
   const gatewayOn = options.gateway ?? process.env.GATEWAY !== 'off';
   const gateway = gatewayOn ? registerGatewayTools(server) : undefined;
-  registerTaxonomyTools(server, here, gateway?.calls);
+  // The routers are registered either way, but find_capability must not offer them when no provider is reachable.
+  const unavailable = new Set(routerReady(gateway) ? [] : [`${SELF_MCP_ID}/get_quote`, `${SELF_MCP_ID}/build_swap_tx`]);
+  registerTaxonomyTools(server, here, gateway?.calls, unavailable);
   registerSwapRouter(server, gateway);
   registerCardanoTools(server);
   registerIndigoTools(server);

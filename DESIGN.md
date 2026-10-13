@@ -50,6 +50,19 @@ src/__tests__/              # vitest
 - `indigo.getPositions(address)`, `indigo.buildOpenCdp({ address, iasset, collateralLovelace, mintAmount })`
   and `indigo.buildCloseCdp(...)` -> `{ unsignedTxCbor, description, network }` (full tx CBOR hex,
   empty witness set — CIP-30 `signTx` compatible). Lucid Evolution + Blockfrost provider.
+- **Cross-chain provider interface.** A taxonomy tool declaring `implements` promises this contract.
+  - **`cross_chain.get_quote` input:** `fromChain`, `toChain` (chain id strings, Cardano is `"CARDANO"`),
+    `fromToken`, `toToken` (addresses; native assets are the zero address), `amount` (source smallest
+    units, decimal string), `userAddress`, optional `slippage` (percent string) and `recipientAddress`.
+    The tool's snapshot schema must accept these, and the gateway validates them before the call.
+  - **`cross_chain.get_quote` output:** JSON text `{ all: [{ quoteId, netOutput }] }`. `netOutput` is a
+    digit string in `toToken`'s smallest units. Optional scalar fields that reach the agent:
+    `merchantName`, `inAmount`, `outAmount`, `expiresAt`, `estimatedArrivalSeconds`, `fromChainId`,
+    `toChainId`, `fromToken`, `toToken`, `approvalAddress`, `custodial`. Everything else is dropped.
+  - **`cross_chain.build_swap_tx`:** input `{ quoteId, userAddress }`, output a JSON object, typically
+    `{ txData: { to, data, value } }` for an EVM source, which `sign_and_submit_evm` takes.
+  - **Ranking and limits:** quotes are ranked by the `netOutput` each provider *claims*; nothing verifies
+    it. Each provider gets 30 s; slow or failed ones are listed under `errors`.
 - `get_quote` / `build_swap_tx` hold no provider code. They call every taxonomy tool that declares
   `implements: cross_chain.get_quote` / `cross_chain.build_swap_tx` and that the gateway serves (today
   bazaarswap-mcp, whose client lives in its own repo). Quote ids are prefixed `<mcp id>:` so a build

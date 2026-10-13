@@ -63,6 +63,7 @@ interface Prepared {
   defs: ToolDef[];
   upstreams: Upstream[];
   byId: Map<string, Upstream>;
+  schemas: Map<string, z.ZodType<Record<string, unknown>>>;
 }
 
 export interface Gateway {
@@ -84,6 +85,7 @@ function prepare(root: string, options: GatewayOptions): Prepared {
   const defs: ToolDef[] = [];
   const upstreams: Upstream[] = [];
   const byId = new Map<string, Upstream>();
+  const schemas = new Map<string, z.ZodType<Record<string, unknown>>>();
 
   for (const { mcp, connect, tools } of gatewayMcps(root)) {
     const snapshot = loadSnapshot(mcp.id, root);
@@ -101,12 +103,14 @@ function prepare(root: string, options: GatewayOptions): Prepared {
       if (!entry) throw new Error(`snapshots/${mcp.id}.json has no entry for exposed tool ${tool.name}`);
       const name = exposedName(mcp.id, tool.name);
       const official = tool.official ?? mcp.official;
+      const inputSchema = z.fromJSONSchema(entry.inputSchema as Parameters<typeof z.fromJSONSchema>[0]) as z.ZodType<Record<string, unknown>>;
+      schemas.set(`${mcp.id}/${tool.name}`, inputSchema);
       defs.push({
         name,
         config: {
           title: `${mcp.name}: ${tool.name}`,
           description: `[${mcp.id}, third-party, ${official ? 'official' : 'unofficial'}, effect: ${tool.effect}] ${entry.description}`,
-          inputSchema: z.fromJSONSchema(entry.inputSchema as Parameters<typeof z.fromJSONSchema>[0]) as z.ZodType<Record<string, unknown>>,
+          inputSchema,
           annotations: { readOnlyHint: tool.effect === 'read', openWorldHint: true },
         },
         handler: async (args) => {
@@ -123,7 +127,7 @@ function prepare(root: string, options: GatewayOptions): Prepared {
       calls.set(`${mcp.id}/${tool.name}`, name);
     }
   }
-  return { calls, defs, upstreams, byId };
+  return { calls, defs, upstreams, byId, schemas };
 }
 
 export function registerGatewayTools(
@@ -141,8 +145,14 @@ export function registerGatewayTools(
   return {
     calls: shared.calls,
     invoke: async (mcpId, tool, args) => {
-      if (!shared.calls.has(`${mcpId}/${tool}`)) throw new Error(`${mcpId}/${tool} is not served by this gateway`);
-      return shared.byId.get(mcpId)!.call(tool, args);
+      const key = `${mcpId}/${tool}`;
+      if (!shared.calls.has(key)) throw new Error(`${key} is not served by this gateway`);
+      // Same rule as a direct call: arguments the snapshot schema rejects never reach the upstream.
+      const parsed = shared.schemas.get(key)!.safeParse(args);
+      if (!parsed.success) {
+        throw new Error(`invalid arguments for ${key}: ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}`);
+      }
+      return shared.byId.get(mcpId)!.call(tool, parsed.data);
     },
     close: async () => {
       if (prepared.get(root) === shared) prepared.delete(root);

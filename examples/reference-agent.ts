@@ -52,7 +52,7 @@ async function main(): Promise<void> {
     ) as Record<string, string>,
   });
 
-  const client = new Client({ name: 'bazaarswap-reference-agent', version: '0.1.0' });
+  const client = new Client({ name: 'cardano-defi-reference-agent', version: '0.1.0' });
   await client.connect(transport);
 
   try {

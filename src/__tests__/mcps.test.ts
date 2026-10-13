@@ -124,3 +124,25 @@ describe('BazaarSwap move-out', () => {
     expect(implementers.sort()).toEqual(['bazaarswap-mcp/build_swap_tx', 'bazaarswap-mcp/get_quote']);
   });
 });
+
+describe('router availability in find_capability (review fix)', () => {
+  it('does not mark get_quote here in the key-holding server when no provider is reachable', async () => {
+    const { createCombinedServer } = await import('../wallet/combined.js');
+    const before = process.env.GATEWAY;
+    delete process.env.GATEWAY;
+    try {
+      const server = createCombinedServer();
+      const [a, b] = InMemoryTransport.createLinkedPair();
+      await server.connect(a);
+      const client = new Client({ name: 't', version: '0' });
+      await client.connect(b);
+      const r = await client.callTool({ name: 'find_capability', arguments: { capability: 'trade.cross_chain_swap' } });
+      const paths = JSON.parse((r.content as Array<{ text: string }>)[0].text).paths as Array<{ mcp: string; tool: string; here: boolean }>;
+      expect(paths.find((p) => p.mcp === SELF_MCP_ID && p.tool === 'get_quote')?.here).toBe(false);
+      await client.close();
+    } finally {
+      if (before === undefined) delete process.env.GATEWAY;
+      else process.env.GATEWAY = before;
+    }
+  });
+});
