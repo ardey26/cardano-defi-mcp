@@ -55,7 +55,7 @@ export function registerGatewayTools(
         {
           title: `${mcp.name}: ${tool.name}`,
           description: `[${mcp.id}, third-party, ${official ? 'official' : 'unofficial'}, effect: ${tool.effect}] ${entry.description}`,
-          inputSchema: z.fromJSONSchema(entry.inputSchema as never) as never,
+          inputSchema: z.fromJSONSchema(entry.inputSchema as Parameters<typeof z.fromJSONSchema>[0]) as z.ZodType<Record<string, unknown>>,
           annotations: { readOnlyHint: tool.effect === 'read', openWorldHint: true },
         },
         async (args: Record<string, unknown>) => {
