@@ -139,7 +139,7 @@ async function lock(id) {
   await new Promise((resolve, reject) => {
     execFile(
       "npm",
-      ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"],
+      ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund", "--prefer-online"],
       { cwd: dir, env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", npm_config_ignore_scripts: "true" } },
       (err) => (err ? reject(err) : resolve()),
     );

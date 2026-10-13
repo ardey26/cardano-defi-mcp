@@ -1,0 +1,89 @@
+{
+  "mcp": "bazaarswap-mcp",
+  "packages": [
+    "bazaarswap-mcp@0.1.0"
+  ],
+  "captured": "2026-10-13",
+  "tools": [
+    {
+      "name": "build_swap_tx",
+      "description": "Turn a quoteId from get_quote into transaction data for the swap. Returns an UNSIGNED transaction: this server never holds keys, never signs and never broadcasts. The calling agent (or the user's wallet) signs and submits it. Quotes expire, so build shortly after quoting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "quoteId from a get_quote result"
+          },
+          "userAddress": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Sender address the transaction is built for"
+          }
+        },
+        "required": [
+          "quoteId",
+          "userAddress"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_quote",
+      "description": "Race the BazaarSwap routing backend for cross-chain swap quotes (for example EVM assets into ADA) and return the best route plus every route found, sorted by net output. Read-only: quoting moves no funds. Amounts are in the source token's smallest unit. The returned quoteId feeds build_swap_tx. The race can take up to ~35 seconds. An EMPTY result usually means the backend was cold-starting, not that no route exists: wait ~30 seconds and retry once before reporting no route.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fromChain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Source chain id, e.g. \"1\" for Ethereum"
+          },
+          "toChain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination chain id, e.g. \"CARDANO\" for Cardano"
+          },
+          "fromToken": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Source token address (or native-token sentinel)"
+          },
+          "toToken": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination token address; native ADA on \"CARDANO\" is the zero address"
+          },
+          "amount": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Amount to send, in the source token's smallest unit"
+          },
+          "userAddress": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Sender address on the source chain"
+          },
+          "slippage": {
+            "description": "Slippage tolerance in percent, e.g. \"0.5\"",
+            "type": "string"
+          },
+          "recipientAddress": {
+            "description": "Destination-chain recipient. Required for a swap into Cardano (the Cardano address that receives the ADA or token): without it the race finds no route. Same-format chains default to the sender.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromChain",
+          "toChain",
+          "fromToken",
+          "toToken",
+          "amount",
+          "userAddress"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  ]
+}

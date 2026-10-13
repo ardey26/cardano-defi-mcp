@@ -54,9 +54,9 @@ describe('exposure rules', () => {
     expect(gatewayMcps(root).map((g) => g.mcp.id)).toEqual(['up']);
   });
 
-  it('on the real taxonomy exposes Fetch\'s 5 tools and Indigo MCP\'s 12 reads', () => {
+  it('on the real taxonomy exposes BazaarSwap\'s 2 tools, Fetch\'s 5 and Indigo MCP\'s 12 reads', () => {
     const counts = Object.fromEntries(gatewayMcps().map((g) => [g.mcp.id, g.tools.length]));
-    expect(counts).toEqual({ 'fetch-cardano': 5, 'indigo-mcp': 12 });
+    expect(counts).toEqual({ 'bazaarswap-mcp': 2, 'fetch-cardano': 5, 'indigo-mcp': 12 });
   });
 });
 

@@ -1,0 +1,38 @@
+{
+  "id": "bazaarswap-mcp",
+  "name": "BazaarSwap MCP",
+  "publisher": "Fortress Enterprises",
+  "official": true,
+  "repo": "https://github.com/Fortress-Enterprises/bazaarswap-mcp",
+  "connect": [
+    {
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "bazaarswap-mcp@0.1.0"
+      ]
+    }
+  ],
+  "auth": "none",
+  "tools": [
+    {
+      "name": "get_quote",
+      "capability": "trade.cross_chain_swap",
+      "venues": [
+        "bazaarswap"
+      ],
+      "effect": "read",
+      "notes": "Races the routing backend for up to ~35 s. For a swap into Cardano, recipientAddress (the Cardano address) is required or no route is found."
+    },
+    {
+      "name": "build_swap_tx",
+      "capability": "trade.cross_chain_swap",
+      "venues": [
+        "bazaarswap"
+      ],
+      "effect": "unsigned_tx"
+    }
+  ],
+  "notes": "Disclosure: published by Fortress Enterprises, which also maintains this taxonomy; listed by reviewed PR like any other server. Keyless: the API serves anonymous callers at a lower rate limit, and BAZAAR_API_KEY only raises it, so no tool declares env. The backend sleeps when idle; an empty quote is usually a cold start — retry once after ~30 s."
+}

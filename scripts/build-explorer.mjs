@@ -18,7 +18,7 @@ const REPO_URL = "https://github.com/ardey26/cardano-defi-mcp";
 const OWN_MCPS = ["cardano-defi-mcp", "cardano-defi-mcp-wallet"];
 
 // Display order for the register; unknown categories sort last, alphabetically.
-const CATEGORY_ORDER = ["dex", "lending", "cdp", "stablecoin", "derivatives"];
+const CATEGORY_ORDER = ["dex", "lending", "cdp", "stablecoin", "derivatives", "cross_chain"];
 
 const rank = (category) => {
   const i = CATEGORY_ORDER.indexOf(category);
@@ -40,7 +40,15 @@ function agentAccess(venueId) {
   const tools = mcps.flatMap((m) =>
     m.tools.filter((t) => t.venues?.includes(venueId)).map((t) => ({ mcp: m.id, ...t }))
   );
-  const own = tools.filter((t) => OWN_MCPS.includes(t.mcp));
+  // Callable on the hosted server: its own tools, plus third-party tools the gateway serves
+  // (mirrors src/gateway/eligibility.ts; the validator enforces the pins this skips).
+  const here = (t) => {
+    if (OWN_MCPS.includes(t.mcp)) return true;
+    const m = mcps.find((x) => x.id === t.mcp);
+    const npx = m.connect.some((c) => c.transport === "stdio" && c.command === "npx");
+    return m.auth === "none" && npx && t.effect !== "signs" && !t.env;
+  };
+  const own = tools.filter(here);
   const integration = own.some((t) => t.effect !== "read")
     ? "adapter_live"
     : own.length > 0

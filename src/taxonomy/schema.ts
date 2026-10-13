@@ -6,6 +6,7 @@ export const CategorySchema = z.enum([
   'cdp',
   'stablecoin',
   'derivatives',
+  'cross_chain',
 ]);
 
 // Two-level dot path into taxonomy/capabilities.json, e.g. "lend.borrow".

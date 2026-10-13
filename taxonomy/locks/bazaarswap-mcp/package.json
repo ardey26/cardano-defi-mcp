@@ -1,0 +1,7 @@
+{
+  "name": "gateway-bazaarswap-mcp",
+  "private": true,
+  "dependencies": {
+    "bazaarswap-mcp": "0.1.0"
+  }
+}

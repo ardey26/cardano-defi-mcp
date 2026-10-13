@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TAXONOMY = process.env.TAXONOMY_DIR ?? join(ROOT, "taxonomy");
 
-const CATEGORIES = ["dex", "lending", "cdp", "stablecoin", "derivatives"];
+const CATEGORIES = ["dex", "lending", "cdp", "stablecoin", "derivatives", "cross_chain"];
 const EFFECTS = ["read", "unsigned_tx", "signs"];
 const AUTHS = ["none", "api_key", "oauth"];
 const SCRIPT_ROLES = ["spend", "mint", "stake"];

@@ -1,0 +1,15 @@
+{
+  "id": "bazaarswap",
+  "name": "BazaarSwap",
+  "category": "cross_chain",
+  "url": "https://app.bazaarswap.io",
+  "description": "Meta DEX aggregator that races cross-chain routing providers (Rubic and others) to move assets from other chains into Cardano, or back, and returns the route with the best net output.",
+  "assets": [
+    "ADA",
+    "USDC"
+  ],
+  "capabilities": [
+    "trade.cross_chain_swap"
+  ],
+  "notes": "Disclosure: BazaarSwap is built by Fortress Enterprises, which also maintains this taxonomy; it was listed by the same reviewed PR as every other venue and gets no ranking advantage. The routing backend is closed source; its MCP client (bazaarswap-mcp) is open. Assets are what was verified live on 2026-10-14 (10 USDC on Base quoted into 40.86 ADA via Rubic); the provider set routes more, so the list is directional. Cardano-side legs are plain payments to a provider deposit address, so the venue lists no scripts."
+}

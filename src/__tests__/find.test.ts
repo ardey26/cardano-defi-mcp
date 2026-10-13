@@ -184,3 +184,15 @@ describe('gateway paths', () => {
     expect(result.paths.find((p) => p.tool === 'auto_borrow')).not.toHaveProperty('call');
   });
 });
+
+describe('BazaarSwap listing', () => {
+  it('lists bazaarswap as the cross-chain venue, reachable here through the gateway', () => {
+    const gateway = new Map([['bazaarswap-mcp/get_quote', 'bazaarswap_mcp__get_quote'], ['bazaarswap-mcp/build_swap_tx', 'bazaarswap_mcp__build_swap_tx']]);
+    const result = findCapability({ capability: 'trade.cross_chain_swap' }, [SELF_MCP_ID], undefined, gateway);
+    expect(result.venues.map((v) => v.id)).toEqual(['bazaarswap']);
+    expect(result.gaps).toEqual([]);
+    expect(result.paths.find((p) => p.mcp === 'bazaarswap-mcp' && p.tool === 'get_quote')).toMatchObject({
+      here: true, call: 'bazaarswap_mcp__get_quote', official: true, venues: ['bazaarswap'],
+    });
+  });
+});
