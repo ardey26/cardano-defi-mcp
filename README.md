@@ -305,6 +305,23 @@ takes a PR.
 5. Open a PR. CI validates the files and prints a summary of what changed. A maintainer applies the
    `taxonomy-addition` label after review; the PR cannot merge without it.
 
+### Contracts
+
+A venue's `scripts` lists the contracts an agent's transactions may touch there. Each entry has:
+- `hash`: the script hash;
+- `role`: `spend` for a script address, `mint` for a minting policy, or `stake` for withdrawals and
+  certificates;
+- `label`;
+- `source`: a link a reviewer can check.
+
+Take hashes from a real transaction, not from docs:
+1. Build an unsigned transaction with the venue's own tools.
+2. List its script outputs, spent script inputs, mint policies and script withdrawals.
+3. Confirm each hash on an explorer.
+
+A venue without `scripts` can be listed, but the agent wallet will not sign transactions that touch
+it (see "Signer guard" below). A script hash may belong to only one venue.
+
 Keep `notes` honest: say what you verified and what you did not. Asset lists are expected to be
 directional rather than exhaustive. On merge, the explorer and the v2 `taxonomy.json` bundle (capabilities,
 venues and MCPs) republish automatically. A weekly job re-runs `tools/list` against every listed MCP
@@ -440,6 +457,7 @@ transaction, one rolling 24 hours — plus an EVM chain allowlist.
 | `WALLET_MAX_TX_WEI` | native EVM value per transaction | `10000000000000000` (0.01 ETH) |
 | `WALLET_MAX_DAILY_WEI` | native EVM value per rolling 24 h | `30000000000000000` (0.03 ETH) |
 | `WALLET_EVM_CHAINS` | chain ids the wallet may sign for at all | `1,42161,8453` |
+| `WALLET_MAX_THIRD_PARTY_LOVELACE` | ADA a guarded Cardano transaction may pay to addresses that are neither this wallet nor a listed contract (fees) | `5000000` (5 ADA) |
 | `RPC_URL_<chainId>` | per-chain RPC override | viem's public RPC |
 | `WALLET_STATE_FILE` | where the spend ledger lives | `.wallet-state.json` at the repo root, or `~/.cardano-defi-mcp/wallet-state.json` |
 
@@ -466,6 +484,33 @@ transaction, one rolling 24 hours — plus an EVM chain allowlist.
   lookup per input; this over-counts when the transaction also spends value the wallet did not own
   (closing a CDP, for instance). Over-counting denies more than it should, never less. See the comment
   on `cardanoOutflowLovelace` in `src/wallet/cardano.ts`.
+
+### Signer guard
+
+Before signing a Cardano transaction, the wallet reads it and collects every contract it touches:
+- outputs to script addresses;
+- spent inputs locked by scripts, resolved through Blockfrost;
+- minting policies;
+- script withdrawals and certificates.
+
+Reference inputs are read-only and are not counted. The guard refuses the transaction if:
+
+- **it touches a contract not listed in the taxonomy.** A contract counts as listed only if its
+  script hash appears in some venue's `scripts` *with the same role*. The refusal names each unlisted
+  hash.
+- **it pays native tokens to an address that is not this wallet.** DeFi transactions pay tokens to
+  contracts or back to you. Applies to `sign_and_submit_cardano`.
+- **it pays more than `WALLET_MAX_THIRD_PARTY_LOVELACE` in ADA to such addresses.** The default is
+  5 ADA, which covers aggregator fees. Applies to `sign_and_submit_cardano`.
+- **an input cannot be resolved.** The guard never signs blind.
+
+The allowlist is the taxonomy bundled with the installed version, not a file the agent can edit.
+Changing it means a reviewed PR and a new install.
+
+The guard's limit: it checks *which* contracts a transaction touches, not *the terms* it asks of
+them. A swap order whose datum pays the output to someone else still touches only the DEX's order
+contract. Review of the code that builds transactions and the spending caps cover that gap; the
+guard does not.
 
 ### What the wallet does not change about the main server
 
