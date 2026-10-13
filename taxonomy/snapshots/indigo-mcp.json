@@ -1,0 +1,223 @@
+{
+  "mcp": "indigo-mcp",
+  "packages": [
+    "undici@7.30.0",
+    "@indigoprotocol/indigo-mcp@0.4.2"
+  ],
+  "captured": "2026-10-13",
+  "tools": [
+    {
+      "name": "analyze_cdp_health",
+      "description": "Analyze collateral ratios and liquidation risk of CDPs for an owner, accounting for accrued interest",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Owner payment key hash (56-char hex) or bech32 address"
+          }
+        },
+        "required": [
+          "owner"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_asset_price",
+      "description": "Get the current price(s) for a specific Indigo iAsset, per collateral asset (ADA and others)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "type": "string",
+            "enum": [
+              "iUSD",
+              "iBTC",
+              "iETH",
+              "iSOL",
+              "iEUR",
+              "iJPY",
+              "iADA"
+            ]
+          }
+        },
+        "required": [
+          "asset"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_assets",
+      "description": "Get all Indigo iAssets with their prices",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_blockfrost_balances",
+      "description": "Get token balances for a Cardano address via Blockfrost",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Cardano bech32 address"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_cdps_by_address",
+      "description": "Get all CDPs for a specific Cardano address",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Cardano bech32 address (addr1... or addr_test1...)"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_cdps_by_owner",
+      "description": "Get all CDPs for a specific owner (accepts payment key hash or bech32 address)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Owner payment key hash (56-char hex) or bech32 address"
+          }
+        },
+        "required": [
+          "owner"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_indy_price",
+      "description": "Get the current INDY token price in ADA and USD",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_sp_account_by_owner",
+      "description": "Get stability pool accounts for specific owners (accepts payment key hashes or bech32 addresses)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of payment key hashes or bech32 addresses"
+          }
+        },
+        "required": [
+          "owners"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_stability_pools",
+      "description": "Get the latest stability pool state for each iAsset (snapshots, epoch-to-scale-to-sum, asset states)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_staking_position_by_address",
+      "description": "Get INDY staking positions for a single Cardano address",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Cardano bech32 address"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_staking_positions_by_owner",
+      "description": "Get INDY staking positions for specific owners (accepts payment key hashes or bech32 addresses)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of payment key hashes or bech32 addresses"
+          }
+        },
+        "required": [
+          "owners"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_steelswap_estimate",
+      "description": "Get a swap estimate from Steelswap DEX",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "type": "string",
+            "description": "Input token identifier"
+          },
+          "tokenOut": {
+            "type": "string",
+            "description": "Output token identifier"
+          },
+          "amountIn": {
+            "type": "number",
+            "description": "Amount of input token"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  ]
+}

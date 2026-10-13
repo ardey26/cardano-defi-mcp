@@ -1,14 +1,16 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import {
   CapabilityNodeSchema,
   McpSchema,
+  SnapshotSchema,
   VenueSchema,
   type CapabilityNode,
   type Category,
   type Mcp,
+  type Snapshot,
   type Venue,
 } from './schema.js';
 
@@ -150,4 +152,12 @@ export function loadMcps(root = TAXONOMY_ROOT): Mcp[] {
 
 export function getMcp(id: string, root = TAXONOMY_ROOT): Mcp | undefined {
   return loadMcps(root).find((m) => m.id === id);
+}
+
+export function loadSnapshot(id: string, root = TAXONOMY_ROOT): Snapshot {
+  const file = join(root, 'snapshots', `${id}.json`);
+  if (!existsSync(file)) {
+    throw new Error(`Missing snapshot taxonomy/snapshots/${id}.json — run node scripts/mcp-tools.mjs --snapshot ${id}`);
+  }
+  return parseOrThrow(SnapshotSchema, readJson(file, `snapshots/${id}.json`), `snapshot snapshots/${id}.json`);
 }

@@ -3,6 +3,9 @@
 //
 //   node scripts/mcp-tools.mjs --connect '{"transport":"http","url":"https://…/mcp"}'
 //       print the server's tool names, one per line (for writing a taxonomy/mcps/ entry)
+//   node scripts/mcp-tools.mjs --snapshot <id>
+//       write taxonomy/snapshots/<id>.json: the name, description and dereferenced
+//       input schema of every tool the gateway exposes, at the pinned packages
 //   node scripts/mcp-tools.mjs --check [--out report.json]
 //       for every taxonomy/mcps/ entry with auth "none" (except this repo's own,
 //       which the unit tests cover), compare declared tools with the live list;
@@ -12,7 +15,8 @@
 // command. Run it only where that is acceptable — a scratch machine, or a CI
 // job with no secrets and no write permissions.
 
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -22,6 +26,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MCP_DIR = join(ROOT, "taxonomy", "mcps");
+const SNAPSHOT_DIR = join(ROOT, "taxonomy", "snapshots");
 const OWN_MCPS = ["cardano-defi-mcp", "cardano-defi-mcp-wallet"];
 
 // Covers a free-tier cold start and a first `npx -y` install.
@@ -35,25 +40,97 @@ function withTimeout(promise, what) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function listTools(connect) {
+/** Connects to a server, runs fn(client), and always closes it. stdio children get `env` when given. */
+async function withClient(connect, fn, env) {
   const transport =
     connect.transport === "stdio"
-      ? new StdioClientTransport({ command: connect.command, args: connect.args, stderr: "ignore" })
+      ? new StdioClientTransport({ command: connect.command, args: connect.args, stderr: "ignore", ...(env ? { env } : {}) })
       : new StreamableHTTPClientTransport(new URL(connect.url));
   const client = new Client({ name: "taxonomy-mcp-tools", version: "0.1.0" });
   try {
     await withTimeout(client.connect(transport), "connect");
-    const names = [];
-    let cursor;
-    do {
-      const page = await withTimeout(client.listTools(cursor ? { cursor } : undefined), "tools/list");
-      names.push(...page.tools.map((t) => t.name));
-      cursor = page.nextCursor;
-    } while (cursor);
-    return names.sort();
+    return await fn(client);
   } finally {
     await client.close().catch(() => {});
   }
+}
+
+/** Every tool the server lists, following cursors. */
+async function liveTools(client) {
+  const tools = [];
+  let cursor;
+  do {
+    const page = await withTimeout(client.listTools(cursor ? { cursor } : undefined), "tools/list");
+    tools.push(...page.tools);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return tools;
+}
+
+async function listTools(connect, env) {
+  return withClient(connect, async (client) => (await liveTools(client)).map((t) => t.name).sort(), env);
+}
+
+// Inline local "#/a/b" refs so the schema is self-contained (zod's fromJSONSchema cannot follow them).
+function deref(node, root = node, seen = new Set()) {
+  if (Array.isArray(node)) return node.map((n) => deref(n, root, seen));
+  if (!node || typeof node !== "object") return node;
+  if (typeof node.$ref === "string" && node.$ref.startsWith("#/")) {
+    if (seen.has(node.$ref)) throw new Error(`circular $ref ${node.$ref}`);
+    const target = node.$ref
+      .slice(2)
+      .split("/")
+      .reduce((at, key) => at?.[key.replace(/~1/g, "/").replace(/~0/g, "~")], root);
+    if (target === undefined) throw new Error(`unresolvable $ref ${node.$ref}`);
+    const { $ref, ...rest } = node;
+    return { ...deref(target, root, new Set([...seen, $ref])), ...deref(rest, root, seen) };
+  }
+  return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, deref(v, root, seen)]));
+}
+
+/** npx arguments that name packages: every `-p <spec>`, else the first positional. Mirrors src/gateway/eligibility.ts. */
+function packageSpecs(args) {
+  const specs = [];
+  let positional;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "-p" || args[i] === "--package") specs.push(args[++i] ?? "");
+    else if (!args[i].startsWith("-") && positional === undefined) positional = args[i];
+  }
+  return specs.length > 0 ? specs : positional !== undefined ? [positional] : [];
+}
+
+/** What a stdio child sees: no secrets, no install scripts. Mirrors childEnv in src/gateway/upstream.ts. */
+async function cleanEnv() {
+  return {
+    PATH: process.env.PATH ?? "",
+    HOME: await mkdtemp(join(tmpdir(), "mcp-tools-home-")),
+    npm_config_ignore_scripts: "true",
+    npm_config_yes: "true",
+    npm_config_update_notifier: "false",
+  };
+}
+
+const exposed = (tool) => tool.effect !== "signs" && !tool.env;
+
+async function snapshot(id) {
+  const mcp = JSON.parse(await readFile(join(MCP_DIR, `${id}.json`), "utf8"));
+  const connect = mcp.connect.find((c) => c.transport === "stdio" && c.command === "npx");
+  if (!connect) throw new Error(`${id} has no npx stdio connect entry to snapshot`);
+  const wanted = mcp.tools.filter(exposed).map((t) => t.name);
+  const live = await withClient(connect, liveTools, await cleanEnv());
+  const missing = wanted.filter((name) => !live.some((t) => t.name === name));
+  if (missing.length > 0) {
+    console.error(`${id}: exposed tools missing from the live list: ${missing.join(", ")}`);
+    process.exit(1);
+  }
+  const tools = live
+    .filter((t) => wanted.includes(t.name))
+    .map((t) => ({ name: t.name, description: t.description ?? "", inputSchema: deref(t.inputSchema) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const record = { mcp: id, packages: packageSpecs(connect.args), captured: new Date().toISOString().slice(0, 10), tools };
+  await mkdir(SNAPSHOT_DIR, { recursive: true });
+  await writeFile(join(SNAPSHOT_DIR, `${id}.json`), `${JSON.stringify(record, null, 2)}\n`);
+  console.log(`wrote taxonomy/snapshots/${id}.json (${tools.length} tools)`);
 }
 
 async function check(out) {
@@ -85,14 +162,16 @@ async function check(out) {
 }
 
 const { values } = parseArgs({
-  options: { connect: { type: "string" }, check: { type: "boolean" }, out: { type: "string" } },
+  options: { connect: { type: "string" }, check: { type: "boolean" }, out: { type: "string" }, snapshot: { type: "string" } },
 });
 
 if (values.connect) {
   for (const name of await listTools(JSON.parse(values.connect))) console.log(name);
+} else if (values.snapshot) {
+  await snapshot(values.snapshot);
 } else if (values.check) {
   await check(values.out);
 } else {
-  console.error("usage: mcp-tools.mjs --connect '<connect JSON>' | --check [--out <file>]");
+  console.error("usage: mcp-tools.mjs --connect '<connect JSON>' | --snapshot <id> | --check [--out <file>]");
   process.exit(2);
 }

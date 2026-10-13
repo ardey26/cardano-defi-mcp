@@ -87,6 +87,19 @@ describe('validate-taxonomy.mjs', () => {
     expect(r.stderr).toMatch(/mcps\/m\.json tools\[0\]: "env" must be a non-empty array of UPPER_SNAKE variable names/);
   });
 
+  it('requires a snapshot matching the exposed tools of every gateway MCP', () => {
+    const connect = [{ transport: 'stdio', command: 'npx', args: ['-y', 'm-mcp@1.0.0'] }];
+    const tools = [{ name: 't', capability: 'lend.borrow', effect: 'read' }];
+    const missing = validate(writeTaxonomy({ mcps: { m: mcp('m', { connect, tools }) } }));
+    expect(missing.stderr).toMatch(/mcps\/m\.json: missing snapshot snapshots\/m\.json/);
+    const stale = validate(writeTaxonomy({
+      mcps: { m: mcp('m', { connect, tools }) },
+      snapshots: { m: { mcp: 'm', packages: ['m-mcp@0.9.0'], captured: '2026-10-14', tools: [{ name: 'other', description: 'd', inputSchema: { type: 'object' } }] } },
+    }));
+    expect(stale.stderr).toMatch(/snapshots\/m\.json: packages .* do not match/);
+    expect(stale.stderr).toMatch(/snapshots\/m\.json: tools \["other"\] do not match the exposed tools \["t"\]/);
+  });
+
   it('rejects a filename that does not match the id', () => {
     const r = validate(writeTaxonomy({ venues: { alpha: venue('beta') } }));
     expect(r.status).toBe(1);

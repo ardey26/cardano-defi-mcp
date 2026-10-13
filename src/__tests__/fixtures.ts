@@ -20,6 +20,8 @@ export interface TaxonomyFixture {
   venues?: Record<string, unknown>;
   /** Keyed by filename without `.json`. */
   mcps?: Record<string, unknown>;
+  /** Keyed by MCP id; written to snapshots/<id>.json. */
+  snapshots?: Record<string, unknown>;
 }
 
 export function writeTaxonomy(fx: TaxonomyFixture = {}): string {
@@ -32,6 +34,12 @@ export function writeTaxonomy(fx: TaxonomyFixture = {}): string {
   }
   for (const [id, record] of Object.entries(fx.mcps ?? {})) {
     writeFileSync(join(root, 'mcps', `${id}.json`), JSON.stringify(record));
+  }
+  if (fx.snapshots) {
+    mkdirSync(join(root, 'snapshots'));
+    for (const [id, snapshot] of Object.entries(fx.snapshots)) {
+      writeFileSync(join(root, 'snapshots', `${id}.json`), JSON.stringify(snapshot));
+    }
   }
   return root;
 }

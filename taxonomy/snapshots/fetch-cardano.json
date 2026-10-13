@@ -1,0 +1,361 @@
+{
+  "mcp": "fetch-cardano",
+  "packages": [
+    "@fetchswap/cardano-mcp@0.1.0"
+  ],
+  "captured": "2026-10-13",
+  "tools": [
+    {
+      "name": "cardano_aggregate_quote",
+      "description": "Preview the best route for swapping sellCoin → buyCoin across all supported Cardano DEXes. Returns estimated output, per-DEX split, price impact, and fees. Builds NO transaction — use cardano_build_swap once the user confirms. Amounts are in the token's smallest unit (lovelace for ADA: 1 ADA = 1_000_000).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sellCoin": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Token being sold."
+          },
+          "sellAmount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Amount to sell, in the smallest unit (e.g. lovelace for ADA)."
+          },
+          "buyCoin": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Token being bought."
+          },
+          "slippage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Slippage tolerance percent (default 1)."
+          },
+          "excludeDexes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "DEX names to exclude from routing, e.g. [\"WingRiders\"]."
+          }
+        },
+        "required": [
+          "sellCoin",
+          "sellAmount",
+          "buyCoin"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "cardano_build_swap",
+      "description": "Build an unsigned swap transaction (returns CBOR hex) for the best route from sellCoin → buyCoin. The caller must sign and submit the CBOR with their own wallet; this tool never holds keys or submits. Requires the user's walletAddress. Always show the user an aggregate_quote first and get explicit confirmation before building.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sellCoin": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Token being sold."
+          },
+          "sellAmount": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Amount to sell, in the smallest unit."
+          },
+          "buyCoin": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Token being bought."
+          },
+          "walletAddress": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Cardano address (bech32 addr1...) that will sign and own the swap."
+          },
+          "slippage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Slippage tolerance percent (default 1)."
+          },
+          "excludeDexes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "DEX names to exclude from routing."
+          }
+        },
+        "required": [
+          "sellCoin",
+          "sellAmount",
+          "buyCoin",
+          "walletAddress"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "cardano_latest_price",
+      "description": "Get the current exchange rate between two tokens (price of tokenA expressed in tokenB). Provide both tokens by policyId+nameHex; ADA is { policyId: \"lovelace\", nameHex: \"\" }.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tokenA": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Base token."
+          },
+          "tokenB": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Quote token."
+          }
+        },
+        "required": [
+          "tokenA",
+          "tokenB"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "cardano_trade_history",
+      "description": "Get recent on-chain trades for a token pair, most recent first. Useful for gauging activity, recent fills, and realized prices.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "coinA": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "First token of the pair."
+          },
+          "coinB": {
+            "type": "object",
+            "properties": {
+              "policyId": {
+                "type": "string",
+                "description": "Token policy ID. Use \"lovelace\" for ADA."
+              },
+              "nameHex": {
+                "type": "string",
+                "description": "Token name in hex. Use \"\" (empty string) for ADA."
+              },
+              "decimals": {
+                "type": "integer",
+                "description": "Optional decimal precision override."
+              }
+            },
+            "required": [
+              "policyId",
+              "nameHex"
+            ],
+            "additionalProperties": false,
+            "description": "Second token of the pair."
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Pagination offset (default 0)."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Number of trades to return, max 100 (default 50)."
+          }
+        },
+        "required": [
+          "coinA",
+          "coinB"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "cardano_yield_opportunities",
+      "description": "List Cardano DeFi lending/borrowing yield opportunities (Liqwid, Indigo, Surf) with APY, TVL, and utilization. Supports filtering and sorting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "liqwid",
+              "indigo",
+              "surf"
+            ],
+            "description": "Filter by protocol."
+          },
+          "asset": {
+            "type": "string",
+            "description": "Filter by asset name, e.g. 'ADA'."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "lending",
+              "borrowing"
+            ],
+            "description": "Filter by opportunity type."
+          },
+          "minApy": {
+            "type": "number",
+            "description": "Minimum APY threshold."
+          },
+          "sortBy": {
+            "type": "string",
+            "enum": [
+              "apy",
+              "tvl",
+              "utilization"
+            ],
+            "description": "Sort field."
+          },
+          "sortOrder": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "Sort direction."
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  ]
+}

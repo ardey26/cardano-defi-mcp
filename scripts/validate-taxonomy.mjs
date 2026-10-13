@@ -237,6 +237,50 @@ function checkTool(where, tool, seenNames) {
 
 const mcps = await readRecords("mcps");
 
+// --- gateway: what agents will see (mirrors src/gateway/eligibility.ts) -------
+
+const exposedNames = new Map();
+
+function gatewayConnect(mcp) {
+  if (mcp.auth !== "none" || OWN_MCPS.includes(mcp.id) || !Array.isArray(mcp.connect)) return undefined;
+  return mcp.connect.find((c) => {
+    if (!isObject(c) || c.transport !== "stdio" || c.command !== "npx" || !Array.isArray(c.args)) return false;
+    const specs = packageSpecs(c.args);
+    return specs.length > 0 && specs.every((spec) => EXACT_VERSION.test(spec));
+  });
+}
+
+async function checkGateway(file, mcp) {
+  const connect = gatewayConnect(mcp);
+  const tools = Array.isArray(mcp.tools) ? mcp.tools.filter((t) => isObject(t) && t.effect !== "signs" && !t.env) : [];
+  if (!connect || tools.length === 0) return;
+
+  for (const tool of tools) {
+    const name = `${mcp.id.replace(/-/g, "_")}__${tool.name}`;
+    if (name.length > 64) fail(file, `exposed name ${name} is longer than 64 characters`);
+    const other = exposedNames.get(name);
+    if (other) fail(file, `exposed name ${name} collides with ${other}`);
+    else exposedNames.set(name, file);
+  }
+
+  const snapFile = `snapshots/${mcp.id}.json`;
+  let snapshot;
+  try {
+    snapshot = JSON.parse(await readFile(join(TAXONOMY, snapFile), "utf8"));
+  } catch {
+    return fail(file, `missing snapshot ${snapFile} (run node scripts/mcp-tools.mjs --snapshot ${mcp.id})`);
+  }
+  const packages = packageSpecs(connect.args);
+  if (JSON.stringify(snapshot.packages) !== JSON.stringify(packages)) {
+    fail(snapFile, `packages ${JSON.stringify(snapshot.packages)} do not match connect ${JSON.stringify(packages)}; re-run the snapshot`);
+  }
+  const have = (Array.isArray(snapshot.tools) ? snapshot.tools.map((t) => t?.name) : []).sort();
+  const want = tools.map((t) => t.name).sort();
+  if (JSON.stringify(have) !== JSON.stringify(want)) {
+    fail(snapFile, `tools ${JSON.stringify(have)} do not match the exposed tools ${JSON.stringify(want)}`);
+  }
+}
+
 for (const { file, record: mcp } of mcps) {
   checkFields(file, mcp, MCP_FIELDS);
   requireStrings(file, mcp, ["id", "name", "publisher"]);
@@ -254,6 +298,7 @@ for (const { file, record: mcp } of mcps) {
     mcp.tools.forEach((tool, i) => checkTool(`${file} tools[${i}]`, tool, seenNames));
   }
   checkNotes(file, mcp);
+  await checkGateway(file, mcp);
 }
 
 if (errors.length > 0) {

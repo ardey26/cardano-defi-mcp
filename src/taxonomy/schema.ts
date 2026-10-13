@@ -89,7 +89,24 @@ export const McpSchema = z.strictObject({
   notes: z.string().min(1).optional(),
 });
 
+// The exact tool text agents see through the gateway, captured from tools/list at the pinned packages.
+export const SnapshotSchema = z.strictObject({
+  mcp: z.string().min(1),
+  packages: z.array(z.string().min(1)).min(1),
+  captured: z.string().min(1),
+  tools: z
+    .array(
+      z.strictObject({
+        name: z.string().min(1),
+        description: z.string(),
+        inputSchema: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .min(1),
+});
+
 export type Category = z.infer<typeof CategorySchema>;
+export type Snapshot = z.infer<typeof SnapshotSchema>;
 export type Venue = z.infer<typeof VenueSchema>;
 export type ScriptRole = z.infer<typeof ScriptRoleSchema>;
 export type VenueScript = z.infer<typeof VenueScriptSchema>;
