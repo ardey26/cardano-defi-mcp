@@ -100,6 +100,14 @@ describe('validate-taxonomy.mjs', () => {
     expect(stale.stderr).toMatch(/snapshots\/m\.json: tools \["other"\] do not match the exposed tools \["t"\]/);
   });
 
+  it('rejects npx flags outside -y and -p', () => {
+    const r = validate(writeTaxonomy({
+      mcps: { m: mcp('m', { connect: [{ transport: 'stdio', command: 'npx', args: ['-y', '--registry=https://evil.example', 'm-mcp@1.0.0'] }] }) },
+    }));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/mcps\/m\.json connect\[0\]: npx argument "--registry=https:\/\/evil\.example" is not allowed/);
+  });
+
   it('rejects a filename that does not match the id', () => {
     const r = validate(writeTaxonomy({ venues: { alpha: venue('beta') } }));
     expect(r.status).toBe(1);

@@ -15,7 +15,7 @@ const root = writeTaxonomy({
     'fake-up': mcp('fake-up', {
       connect: [{ transport: 'stdio', command: 'npx', args: ['-y', 'fake-up@1.0.0'] }],
       tools: [
-        tool('echo'), tool('build', 'unsigned_tx'), tool('sign', 'signs'), tool('big'), tool('slow'), tool('fail'), tool('env'),
+        tool('echo'), tool('build', 'unsigned_tx'), tool('sign', 'signs'), tool('big'), tool('slow'), tool('fail'), tool('env'), tool('pid'), tool('rich'),
         tool('keyed', 'unsigned_tx', { env: ['X_KEY'] }),
       ],
     }),
@@ -30,7 +30,7 @@ const root = writeTaxonomy({
       tools: [
         snap('echo', { type: 'object', properties: { msg: { type: 'string' } }, required: ['msg'] }),
         snap('build', { type: 'object', properties: { address: { type: 'string' } }, required: ['address'] }),
-        snap('big'), snap('slow'), snap('fail'), snap('env'),
+        snap('big'), snap('slow'), snap('fail'), snap('env'), snap('pid'), snap('rich'),
       ],
     },
     'stale-up': { mcp: 'stale-up', packages: ['stale-up@1.0.0'], captured: '2026-10-14', tools: [snap('read'), snap('sign')] },
@@ -59,7 +59,7 @@ describe('registerGatewayTools', () => {
   it('lists exactly the exposed tools, prefixed, with the labelled description', async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
-    expect(names).toEqual(['fake_up__big', 'fake_up__build', 'fake_up__echo', 'fake_up__env', 'fake_up__fail', 'fake_up__slow', 'stale_up__read']);
+    expect(names).toEqual(['fake_up__big', 'fake_up__build', 'fake_up__echo', 'fake_up__env', 'fake_up__fail', 'fake_up__pid', 'fake_up__rich', 'fake_up__slow', 'stale_up__read']);
     expect(tools.find((t) => t.name === 'fake_up__echo')?.description).toBe('[fake-up, third-party, unofficial, effect: read] echo tool');
   });
 
@@ -98,12 +98,43 @@ describe('registerGatewayTools', () => {
   it('reports the exposed name for each mcp/tool', () => {
     expect([...calls.entries()].sort()).toEqual([
       ['fake-up/big', 'fake_up__big'], ['fake-up/build', 'fake_up__build'], ['fake-up/echo', 'fake_up__echo'],
-      ['fake-up/env', 'fake_up__env'], ['fake-up/fail', 'fake_up__fail'], ['fake-up/slow', 'fake_up__slow'],
+      ['fake-up/env', 'fake_up__env'], ['fake-up/fail', 'fake_up__fail'], ['fake-up/pid', 'fake_up__pid'],
+      ['fake-up/rich', 'fake_up__rich'], ['fake-up/slow', 'fake_up__slow'],
       ['stale-up/read', 'stale_up__read'],
     ]);
   });
 
   it('does not expose a snapshot entry the record no longer allows', () => {
     expect(calls.has('stale-up/sign')).toBe(false);
+  });
+
+  it('shares one upstream process across server instances (the HTTP mode builds a server per request)', async () => {
+    const second = new McpServer({ name: 'gw-test-2', version: '0.0.0' });
+    registerGatewayTools(second, {
+      root,
+      connectOverride: () => ({ command: process.execPath, args: [FAKE] }),
+      upstream: { callTimeoutMs: 2000 },
+    });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await second.connect(a);
+    const other = new Client({ name: 't2', version: '0' });
+    await other.connect(b);
+    const pid = async (c: Client) => ((await c.callTool({ name: 'fake_up__pid', arguments: {} })).content as Array<{ text: string }>)[1].text;
+    expect(await pid(other)).toBe(await pid(client));
+    await other.close();
+  });
+
+  it('forwards only labelled text: non-text blocks, structuredContent and _meta are replaced or dropped', async () => {
+    const r = await client.callTool({ name: 'fake_up__rich', arguments: {} });
+    expect(r.structuredContent).toBeUndefined();
+    expect(r._meta).toBeUndefined();
+    const blocks = r.content as Array<{ type: string; text: string }>;
+    expect(blocks.every((b) => b.type === 'text')).toBe(true);
+    expect(blocks[1].text).toBe('plain');
+    expect(blocks.slice(2).map((b) => b.text)).toEqual([
+      '[image content omitted by the gateway: only text is forwarded]',
+      '[resource content omitted by the gateway: only text is forwarded]',
+    ]);
+    expect(JSON.stringify(r).length).toBeLessThan(300 * 1024);
   });
 });

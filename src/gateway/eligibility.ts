@@ -16,15 +16,31 @@ export function isPinned(spec: string): boolean {
   return EXACT_VERSION.test(spec);
 }
 
-/** npx arguments that name packages: every `-p <spec>`, else the first positional. */
-export function packageSpecs(args: string[]): string[] {
-  const specs: string[] = [];
-  let positional: string | undefined;
+/**
+ * The only npx shapes the gateway accepts: `-y`/`--yes`, `-p <spec>`/`--package <spec>`, and exactly
+ * one bare name (the package when no -p is given, otherwise the bin). Anything else — `--registry=…`,
+ * `--node-options=…`, `--package=…`, extra arguments — could run code the pin does not describe.
+ */
+export function parseNpxArgs(args: string[]): { packages: string[]; bin?: string } | undefined {
+  const packages: string[] = [];
+  const positionals: string[] = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '-p' || args[i] === '--package') specs.push(args[++i] ?? '');
-    else if (!args[i].startsWith('-') && positional === undefined) positional = args[i];
+    const arg = args[i];
+    if (arg === '-y' || arg === '--yes') continue;
+    if (arg === '-p' || arg === '--package') {
+      const spec = args[++i];
+      if (spec === undefined || spec.startsWith('-')) return undefined;
+      packages.push(spec);
+    } else if (arg.startsWith('-')) return undefined;
+    else positionals.push(arg);
   }
-  return specs.length > 0 ? specs : positional !== undefined ? [positional] : [];
+  if (positionals.length !== 1) return undefined;
+  return packages.length > 0 ? { packages, bin: positionals[0] } : { packages: [positionals[0]] };
+}
+
+/** The packages an accepted npx command names; empty when the command is not accepted. */
+export function packageSpecs(args: string[]): string[] {
+  return parseNpxArgs(args)?.packages ?? [];
 }
 
 export function gatewayConnect(mcp: Mcp): { command: string; args: string[] } | undefined {

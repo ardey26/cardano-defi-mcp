@@ -26,16 +26,29 @@ const OWN_MCPS = ["cardano-defi-mcp", "cardano-defi-mcp-wallet"];
 const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "env", "notes"];
 const EXACT_VERSION = /^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*@\d+\.\d+\.\d+(?:-[\w.]+)?$/;
 
-/** npx arguments that name packages: every `-p <spec>`, else the first positional. Mirrors src/gateway/eligibility.ts. */
-function packageSpecs(args) {
-  const specs = [];
-  let positional;
+/**
+ * The accepted npx shapes (mirrors parseNpxArgs in src/gateway/eligibility.ts): -y/--yes, -p/--package
+ * <spec>, and exactly one bare name. Returns { packages, bin } or { problem }.
+ */
+function parseNpxArgs(args) {
+  const packages = [];
+  const positionals = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "-p" || args[i] === "--package") specs.push(args[++i] ?? "");
-    else if (!args[i].startsWith("-") && positional === undefined) positional = args[i];
+    const arg = args[i];
+    if (arg === "-y" || arg === "--yes") continue;
+    if (arg === "-p" || arg === "--package") {
+      const spec = args[++i];
+      if (spec === undefined || spec.startsWith("-")) return { problem: `npx argument ${JSON.stringify(arg)} needs a package after it` };
+      packages.push(spec);
+    } else if (arg.startsWith("-")) {
+      return { problem: `npx argument ${JSON.stringify(arg)} is not allowed (only -y, -p <pkg>, --package <pkg> and one package or bin name)` };
+    } else positionals.push(arg);
   }
-  return specs.length > 0 ? specs : positional !== undefined ? [positional] : [];
+  if (positionals.length !== 1) return { problem: `npx needs exactly one package or bin name (got ${positionals.length})` };
+  return packages.length > 0 ? { packages, bin: positionals[0] } : { packages: [positionals[0]] };
 }
+
+const packageSpecs = (args) => parseNpxArgs(args).packages ?? [];
 
 const errors = [];
 const fail = (where, message) => errors.push(`${where}: ${message}`);
@@ -195,7 +208,9 @@ function checkConnect(where, entry, own) {
       fail(where, 'stdio needs "args" as an array of strings');
     }
     if (!own && entry.command === "npx" && Array.isArray(entry.args)) {
-      for (const spec of packageSpecs(entry.args)) {
+      const parsed = parseNpxArgs(entry.args);
+      if (parsed.problem) fail(where, parsed.problem);
+      for (const spec of parsed.packages ?? []) {
         if (!EXACT_VERSION.test(spec)) fail(where, `package ${JSON.stringify(spec)} must name an exact version, e.g. name@1.2.3`);
       }
     }

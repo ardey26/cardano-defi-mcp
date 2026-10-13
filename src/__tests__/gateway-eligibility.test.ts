@@ -59,3 +59,24 @@ describe('exposure rules', () => {
     expect(counts).toEqual({ 'fetch-cardano': 5, 'indigo-mcp': 12 });
   });
 });
+
+describe('npx arguments (review fix)', () => {
+  it.each([
+    [['-y', '--package=evil', '-p', 'x@1.0.0', 'evilbin']],
+    [['-y', '--registry=https://evil.example', 'x@1.0.0']],
+    [['-y', '--node-options=--require=/tmp/x.js', 'x@1.0.0']],
+    [['-y', '-p', 'x@1.0.0', 'bin', 'extra-arg']],
+    [['--yes', '-c', 'echo hi', 'x@1.0.0']],
+  ])('refuses %j', (args) => {
+    expect(gatewayConnect(record({ connect: stdio(...args) }))).toBeUndefined();
+  });
+
+  it.each([
+    [['-y', 'x@1.0.0']],
+    [['--yes', 'x@1.0.0']],
+    [['-y', '-p', 'undici@7.30.0', '-p', '@scope/x@0.4.2', 'x-bin']],
+    [['-y', '--package', 'x@1.0.0', 'x-bin']],
+  ])('accepts %j', (args) => {
+    expect(gatewayConnect(record({ connect: stdio(...args) }))).toBeDefined();
+  });
+});

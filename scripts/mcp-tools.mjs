@@ -88,16 +88,25 @@ function deref(node, root = node, seen = new Set()) {
   return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, deref(v, root, seen)]));
 }
 
-/** npx arguments that name packages: every `-p <spec>`, else the first positional. Mirrors src/gateway/eligibility.ts. */
-function packageSpecs(args) {
-  const specs = [];
-  let positional;
+/** Accepted npx shapes only (mirrors parseNpxArgs in src/gateway/eligibility.ts). */
+function parseNpxArgs(args) {
+  const packages = [];
+  const positionals = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "-p" || args[i] === "--package") specs.push(args[++i] ?? "");
-    else if (!args[i].startsWith("-") && positional === undefined) positional = args[i];
+    const arg = args[i];
+    if (arg === "-y" || arg === "--yes") continue;
+    if (arg === "-p" || arg === "--package") {
+      const spec = args[++i];
+      if (spec === undefined || spec.startsWith("-")) return undefined;
+      packages.push(spec);
+    } else if (arg.startsWith("-")) return undefined;
+    else positionals.push(arg);
   }
-  return specs.length > 0 ? specs : positional !== undefined ? [positional] : [];
+  if (positionals.length !== 1) return undefined;
+  return packages.length > 0 ? { packages, bin: positionals[0] } : { packages: [positionals[0]] };
 }
+
+const packageSpecs = (args) => parseNpxArgs(args)?.packages ?? [];
 
 /** What a stdio child sees: no secrets, no install scripts. Mirrors childEnv in src/gateway/upstream.ts. */
 async function cleanEnv() {
