@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startHttpServer } from '../http.js';
 import { createMcpServer } from '../server.js';
+import { exposedName, gatewayMcps } from '../gateway/eligibility.js';
 
 const EXPECTED_TOOLS = [
   'list_venues',
@@ -80,13 +81,17 @@ describe('Streamable HTTP transport', () => {
     expect(message.result.serverInfo.name).toBe('cardano-defi-mcp');
   });
 
-  it('lists the twelve tools without a session id', async () => {
+  it('lists the twelve own tools plus every gateway tool, and no signing tool, without a session id', async () => {
     const { status, body } = await rpc(base, { jsonrpc: '2.0', id: 2, method: 'tools/list' });
 
     expect(status).toBe(200);
     const message = parseSseMessage(body) as { result: { tools: { name: string }[] } };
     const names = message.result.tools.map((t) => t.name);
-    expect(names.sort()).toEqual([...EXPECTED_TOOLS].sort());
+    const gateway = gatewayMcps().flatMap(({ mcp, tools }) => tools.map((t) => exposedName(mcp.id, t.name)));
+    expect(gateway.length).toBeGreaterThan(0);
+    expect(names.sort()).toEqual([...EXPECTED_TOOLS, ...gateway].sort());
+    const signing = gatewayMcps().flatMap(({ mcp }) => mcp.tools.filter((t) => t.effect === 'signs').map((t) => exposedName(mcp.id, t.name)));
+    expect(names.filter((n) => signing.includes(n))).toEqual([]);
   });
 
   it('refuses GET and DELETE on the stateless endpoint', async () => {

@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+import type { GatewayCalls } from '../gateway/register.js';
 import { findCapability, listCapabilities } from '../taxonomy/find.js';
 import { CategorySchema, getMcp, getVenue, listVenues, searchVenues } from '../taxonomy/index.js';
 import { toolResult } from './result.js';
 
 /** `here` lists the taxonomy/mcps/ ids whose tools this server registers, so find_capability can mark them callable. */
-export function registerTaxonomyTools(server: McpServer, here: readonly string[]): void {
+export function registerTaxonomyTools(server: McpServer, here: readonly string[], gatewayCalls: GatewayCalls = new Map()): void {
   server.registerTool(
     'list_venues',
     {
@@ -80,7 +81,7 @@ export function registerTaxonomyTools(server: McpServer, here: readonly string[]
       description:
         'Answer "how can an agent do X on Cardano?". Returns the venues offering the capability, the MCP tools ' +
         'that can perform it ranked best first, and gaps (venues where no MCP tool can act). A path with ' +
-        '`here: true` is a tool on this server: call it directly. Otherwise call get_mcp for its connect ' +
+        '`here: true` is callable on this server now: call the tool named in its `call` field. Otherwise call get_mcp for its connect ' +
         'config and ask the user to add that server; never claim you can use a tool that is not here. ' +
         'Ranking prefers tools that hold no keys (effect read < unsigned_tx < signs) and official servers. Read-only.',
       inputSchema: {
@@ -91,7 +92,7 @@ export function registerTaxonomyTools(server: McpServer, here: readonly string[]
       annotations: { readOnlyHint: true },
     },
     async ({ capability, asset, venue }) =>
-      toolResult(async () => findCapability({ capability, asset, venue }, here)),
+      toolResult(async () => findCapability({ capability, asset, venue }, here, undefined, gatewayCalls)),
   );
 
   server.registerTool(

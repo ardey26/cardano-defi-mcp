@@ -73,7 +73,7 @@ describe('findCapability', () => {
     const result = findCapability({ capability: 'wallet.balance' }, HERE, root);
     expect(result.venues).toEqual([]);
     expect(result.paths[0]).toEqual(
-      { capability: 'wallet.balance', venues: [], mcp: 'here-mcp', tool: 'balance', effect: 'read', official: false, here: true },
+      { capability: 'wallet.balance', venues: [], mcp: 'here-mcp', tool: 'balance', effect: 'read', official: false, here: true, call: 'balance' },
     );
   });
 
@@ -172,5 +172,15 @@ describe('findCapability against the published taxonomy', () => {
     const result = findCapability({ capability: 'trade.swap', asset: 'iUSD' }, [SELF_MCP_ID]);
     expect(brief(result)[0]).toBe('fetch-cardano/cardano_aggregate_quote@minswap,sundaeswap,wingriders');
     expect(result.paths.find((p) => p.tool === 'get_steelswap_estimate')).toMatchObject({ official: false });
+  });
+});
+
+describe('gateway paths', () => {
+  it('marks a gateway tool here with the name to call, and own tools with their own name', () => {
+    const gateway = new Map([['ext-official/rates', 'ext_official__rates']]);
+    const result = findCapability({ capability: 'lend.borrow' }, HERE, root, gateway);
+    expect(result.paths.find((p) => p.tool === 'rates')).toMatchObject({ here: true, call: 'ext_official__rates' });
+    expect(result.paths.find((p) => p.tool === 'borrow_alpha')).toMatchObject({ here: true, call: 'borrow_alpha' });
+    expect(result.paths.find((p) => p.tool === 'auto_borrow')).not.toHaveProperty('call');
   });
 });

@@ -30,6 +30,8 @@ export interface AgentPath {
   official: boolean;
   /** Callable on the server the agent is already connected to. */
   here: boolean;
+  /** When `here`: the tool name to call on this server (a gateway name for third-party tools). */
+  call?: string;
 }
 
 export interface Gap {
@@ -63,7 +65,12 @@ function comparePaths(a: AgentPath, b: AgentPath): number {
   );
 }
 
-export function findCapability(query: FindQuery, here: readonly string[], root = TAXONOMY_ROOT): FindResult {
+export function findCapability(
+  query: FindQuery,
+  here: readonly string[],
+  root = TAXONOMY_ROOT,
+  gatewayCalls: ReadonlyMap<string, string> = new Map(),
+): FindResult {
   const capability = query.capability.trim().toLowerCase();
   const nodes = loadCapabilities(root);
   if (!nodes.some((n) => matchesCapability(n.id, capability))) {
@@ -89,13 +96,16 @@ export function findCapability(query: FindQuery, here: readonly string[], root =
   for (const server of loadMcps(root)) {
     for (const tool of server.tools) {
       if (!matchesCapability(tool.capability, capability)) continue;
+      const via = gatewayCalls.get(`${server.id}/${tool.name}`);
+      const callable = here.includes(server.id) || via !== undefined;
       const base = {
         capability: tool.capability,
         mcp: server.id,
         tool: tool.name,
         effect: tool.effect,
         official: tool.official ?? server.official,
-        here: here.includes(server.id),
+        here: callable,
+        ...(callable ? { call: via ?? tool.name } : {}),
       };
       if (!tool.venues) {
         // A tool that names no venue cannot claim the one the agent asked about.

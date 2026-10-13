@@ -88,6 +88,8 @@ describe.each([
   it('classifies exactly the non-meta tools the server registers', async () => {
     const registered = (await registeredToolNames(create()))
       .filter((name) => !META_TOOLS.includes(name))
+      // Gateway tools (<mcp>__<tool>) belong to other MCP records, not the self-entry.
+      .filter((name) => !name.includes('__'))
       .sort();
     const classified = getMcp(id)!.tools.map((t) => t.name).sort();
     expect(classified).toEqual(registered);
