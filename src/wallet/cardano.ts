@@ -10,6 +10,7 @@ import { Blockfrost, CML, Lucid, paymentCredentialOf } from '@lucid-evolution/lu
 import type { LucidEvolution } from '@lucid-evolution/lucid';
 
 import { getBaseUrl, getProjectId } from '../adapters/blockfrost.js';
+import type { ResolveInputs } from './guard.js';
 import { addressOf, cardanoKey, network, type Net } from './keys.js';
 
 export const EXPLORERS: Record<Net, string> = {
@@ -93,4 +94,17 @@ export async function mkSigner(): Promise<{ lucid: LucidEvolution; address: stri
   // Derived locally rather than asked of the wallet: identical result, and it
   // keeps the address readable when no Blockfrost key is configured.
   return { lucid, address: addressOf(key, net) };
+}
+
+/** The guard's input resolver over Blockfrost, which the signer already requires. */
+export function blockfrostResolver(lucid: Pick<LucidEvolution, 'utxosByOutRef'>): ResolveInputs {
+  return async (refs) => {
+    const utxos = await lucid.utxosByOutRef(
+      refs.map((r) => {
+        const [txHash, index] = r.split('#');
+        return { txHash, outputIndex: Number(index) };
+      }),
+    );
+    return new Map(utxos.map((u) => [`${u.txHash}#${u.outputIndex}`, u.address]));
+  };
 }

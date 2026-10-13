@@ -37,6 +37,7 @@ export function createCombinedServer(): McpServer {
         'and Indigo/Liqwid positions. Build tools return UNSIGNED transactions; the wallet tools in this same ' +
         'server sign and submit them from a local burner key, WITH NO HUMAN CONFIRMATION, bounded only by ' +
         'per-transaction and rolling-24h spending caps per chain family plus an EVM chain allowlist. ' +
+        'Cardano signing is guarded: a transaction that touches a contract not listed in the taxonomy is refused. ' +
         'To learn which venues or MCP tools can do something (borrow, swap, mint…), call find_capability ' +
         'first; it marks the tools callable on this server as here. ' +
         'FIRST RUN: call wallet_status. If it reports no keys, call setup_wallet and show the user the ' +

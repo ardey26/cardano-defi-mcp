@@ -13,7 +13,14 @@ import { erc20Abi, type Hex } from 'viem';
 import { getAddressDetails } from '@lucid-evolution/lucid';
 
 import { getBalance } from '../adapters/blockfrost.js';
-import { cardanoOutflowLovelace, explorerTxUrl as cardanoExplorerTxUrl, mkSigner } from './cardano.js';
+import { loadVenues } from '../taxonomy/index.js';
+import {
+  blockfrostResolver,
+  cardanoOutflowLovelace,
+  explorerTxUrl as cardanoExplorerTxUrl,
+  mkSigner,
+} from './cardano.js';
+import { allowlistFrom, assertGuarded } from './guard.js';
 import { chainEntry, explorerTxUrl, publicClientFor, walletClientFor, EVM_CHAINS } from './evm.js';
 import { cardanoAddress, evmAddress, hasCardanoKey, hasEvmKey, network, redact } from './keys.js';
 import {
@@ -280,7 +287,10 @@ export function registerWalletTools(server: McpServer): void {
         "build_swap_tx on Cardano), adds this wallet's vkey witness and submits it through Blockfrost. The body " +
         'is never rebuilt, so a pinned Pyth price and validity range survive — submit promptly after building. ' +
         'Before signing, the ADA leaving the wallet is measured CONSERVATIVELY (every output that does not pay ' +
-        'back to this wallet, plus the fee) and checked against the lovelace caps. Requires ' +
+        'back to this wallet, plus the fee) and checked against the lovelace caps. Then the signer guard ' +
+        'refuses the transaction if it touches any contract not listed in the taxonomy (by script hash and ' +
+        'role), pays native tokens to an address that is not this wallet, or pays more than ' +
+        'WALLET_MAX_THIRD_PARTY_LOVELACE (default 5 ADA) to such addresses. Requires ' +
         'BLOCKFROST_PROJECT_ID and WALLET_CARDANO_PRIVATE_KEY.',
       inputSchema: {
         unsignedTxCbor: z
@@ -296,6 +306,13 @@ export function registerWalletTools(server: McpServer): void {
         const { lucid, address } = await mkSigner();
         const outflow = cardanoOutflowLovelace(unsignedTxCbor, address);
         const decision = assertSpendAllowed(policy, readLedger(), 'cardano', outflow.lovelace, Date.now());
+        const guard = await assertGuarded(unsignedTxCbor, {
+          walletAddress: address,
+          resolve: blockfrostResolver(lucid),
+          allowlist: allowlistFrom(loadVenues()),
+          maxThirdPartyLovelace: policy.maxThirdPartyLovelace,
+          checkPayments: true,
+        });
 
         const signed = await lucid.fromTx(unsignedTxCbor).sign.withWallet().complete();
         const txHash = await signed.submit();
@@ -313,6 +330,7 @@ export function registerWalletTools(server: McpServer): void {
             note: 'conservative: outputs not returning to this wallet, plus the fee — see src/wallet/cardano.ts',
           },
           policy: decision.detail,
+          guard,
         };
       }),
   );
@@ -328,7 +346,8 @@ export function registerWalletTools(server: McpServer): void {
         'from a quote, and the payment must be exact. The amount plus the fee is checked against the ' +
         'lovelace caps before anything is signed. Requires BLOCKFROST_PROJECT_ID and ' +
         'WALLET_CARDANO_PRIVATE_KEY. For an already-built transaction (open_cdp, close_cdp) use ' +
-        'sign_and_submit_cardano instead.',
+        'sign_and_submit_cardano instead. Paying a script address that is not a listed contract is refused by ' +
+        'the signer guard.',
       inputSchema: {
         to: z.string().min(1).describe('Bech32 recipient address, on the same network as this wallet'),
         lovelace: amountString('lovelace').describe('Amount to send, in lovelace (1 ADA = 1000000 lovelace)'),
@@ -362,6 +381,13 @@ export function registerWalletTools(server: McpServer): void {
         const built = await lucid.newTx().pay.ToAddress(to, { lovelace: amount }).complete();
         const outflow = cardanoOutflowLovelace(built.toCBOR(), address);
         const decision = assertSpendAllowed(policy, readLedger(), 'cardano', outflow.lovelace, Date.now());
+        const guard = await assertGuarded(built.toCBOR(), {
+          walletAddress: address,
+          resolve: blockfrostResolver(lucid),
+          allowlist: allowlistFrom(loadVenues()),
+          maxThirdPartyLovelace: policy.maxThirdPartyLovelace,
+          checkPayments: false,
+        });
 
         const signed = await built.sign.withWallet().complete();
         const txHash = await signed.submit();
@@ -376,6 +402,7 @@ export function registerWalletTools(server: McpServer): void {
           charged: formatAmount('cardano', outflow.lovelace),
           fee: formatAmount('cardano', outflow.fee),
           policy: decision.detail,
+          guard,
         };
       }),
   );

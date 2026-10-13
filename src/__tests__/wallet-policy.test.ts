@@ -14,6 +14,7 @@ import {
   assertSpendAllowed,
   DEFAULT_MAX_DAILY_LOVELACE,
   DEFAULT_MAX_DAILY_WEI,
+  DEFAULT_MAX_THIRD_PARTY_LOVELACE,
   DEFAULT_MAX_TX_LOVELACE,
   DEFAULT_MAX_TX_WEI,
   formatAmount,
@@ -26,7 +27,7 @@ import {
   type SpendEntry,
 } from '../wallet/policy.js';
 import { readLedger, recordSpend, writeLedger } from '../wallet/state.js';
-import { cardanoOutflowLovelace } from '../wallet/cardano.js';
+import { blockfrostResolver, cardanoOutflowLovelace } from '../wallet/cardano.js';
 
 const NOW = 1_800_000_000_000;
 
@@ -299,5 +300,28 @@ describe('cardanoOutflowLovelace', () => {
     const cbor = txWith([{ to: other.cml, lovelace: 30_000_000n }], 200_000n);
     const { lovelace } = cardanoOutflowLovelace(cbor, wallet.address);
     expect(() => assertSpendAllowed(loadPolicy({}), [], 'cardano', lovelace, NOW)).toThrow(/per-transaction cap/);
+  });
+});
+
+describe('third-party allowance', () => {
+  it('defaults to 5 ADA and reads WALLET_MAX_THIRD_PARTY_LOVELACE', () => {
+    expect(DEFAULT_MAX_THIRD_PARTY_LOVELACE).toBe(5_000_000n);
+    expect(loadPolicy({}).maxThirdPartyLovelace).toBe(5_000_000n);
+    expect(loadPolicy({ WALLET_MAX_THIRD_PARTY_LOVELACE: '0' }).maxThirdPartyLovelace).toBe(0n);
+  });
+});
+
+describe('blockfrostResolver', () => {
+  it('maps found UTxOs by out-ref and leaves missing ones out', async () => {
+    const asked: unknown[] = [];
+    const lucid = {
+      utxosByOutRef: async (refs: Array<{ txHash: string; outputIndex: number }>) => {
+        asked.push(...refs);
+        return [{ txHash: 'aa', outputIndex: 1, address: 'addr1xyz', assets: {} }];
+      },
+    };
+    const resolved = await blockfrostResolver(lucid as never)(['aa#1', 'bb#0']);
+    expect(asked).toEqual([{ txHash: 'aa', outputIndex: 1 }, { txHash: 'bb', outputIndex: 0 }]);
+    expect([...resolved]).toEqual([['aa#1', 'addr1xyz']]);
   });
 });

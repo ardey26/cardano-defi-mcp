@@ -28,6 +28,8 @@ export interface Policy {
   maxDailyWei: bigint;
   /** EVM chain ids the wallet may sign for at all. */
   evmChains: number[];
+  /** ADA a guarded Cardano transaction may pay to key addresses that are not this wallet (fees). */
+  maxThirdPartyLovelace: bigint;
 }
 
 /** One successful submit. Written only after the network accepted the transaction. */
@@ -50,6 +52,8 @@ export const DEFAULT_MAX_TX_WEI = 10_000_000_000_000_000n;
 /** 0.03 ether */
 export const DEFAULT_MAX_DAILY_WEI = 30_000_000_000_000_000n;
 export const DEFAULT_EVM_CHAINS = '1,42161,8453';
+/** 5 ADA: covers aggregator and frontend fees (Fetch charges 1 ADA), not a drain. */
+export const DEFAULT_MAX_THIRD_PARTY_LOVELACE = 5_000_000n;
 
 interface Unit {
   decimals: number;
@@ -115,6 +119,7 @@ export function loadPolicy(env: NodeJS.ProcessEnv = process.env): Policy {
     maxTxWei: bigintEnv(env, 'WALLET_MAX_TX_WEI', DEFAULT_MAX_TX_WEI),
     maxDailyWei: bigintEnv(env, 'WALLET_MAX_DAILY_WEI', DEFAULT_MAX_DAILY_WEI),
     evmChains,
+    maxThirdPartyLovelace: bigintEnv(env, 'WALLET_MAX_THIRD_PARTY_LOVELACE', DEFAULT_MAX_THIRD_PARTY_LOVELACE),
   };
 }
 
