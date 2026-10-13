@@ -158,9 +158,9 @@ describe('listCapabilities', () => {
 });
 
 describe('findCapability against the published taxonomy', () => {
-  it('routes every swap venue through an aggregator, so swap has no gaps', () => {
+  it('routes every swap venue Fetch can reach; MuesliSwap is the one gap', () => {
     const result = findCapability({ capability: 'trade.swap' }, [SELF_MCP_ID]);
-    expect(result.gaps).toEqual([]);
+    expect(result.gaps).toEqual([{ venue: 'muesliswap', capability: 'trade.swap' }]);
     const minswap = findCapability({ capability: 'trade.swap', venue: 'minswap' }, [SELF_MCP_ID]);
     expect(brief(minswap)).toEqual([
       'fetch-cardano/cardano_aggregate_quote@minswap',

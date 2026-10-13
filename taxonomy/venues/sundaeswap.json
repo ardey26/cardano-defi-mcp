@@ -6,5 +6,9 @@
   "description": "AMM DEX on Cardano that executes orders in batches through licensed 'Scooper' batchers to reduce on-chain contention. One of the first major DEXes on Cardano.",
   "assets": ["ADA", "SUNDAE", "DJED", "iUSD", "USDM"],
   "capabilities": ["trade.swap", "earn.liquidity", "earn.stake"],
-  "notes": "Trading app is at app.sundae.fi; the legacy sundaeswap.finance domain redirects to sundae.fi. Asset list combines ADA, the SUNDAE token, and the stablecoins named on the product pages; it is directional, not a TVL-ranked pool list. V4 docs describe concentrated liquidity and automated routing, but live status was not verified, so those are not reflected in capabilities."
+  "scripts": [
+    {"hash": "ba158766c1bae60e2117ee8987621441fac66a5e0fb9c7aca58cf20a", "role": "spend", "label": "V1 order", "source": "https://cexplorer.io/script/ba158766c1bae60e2117ee8987621441fac66a5e0fb9c7aca58cf20a"},
+    {"hash": "fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077", "role": "spend", "label": "V3 order", "source": "https://cexplorer.io/script/fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077"}
+  ],
+  "notes": "Trading app is at app.sundae.fi; the legacy sundaeswap.finance domain redirects to sundae.fi. Asset list combines ADA, the SUNDAE token, and the stablecoins named on the product pages; it is directional, not a TVL-ranked pool list. V4 docs describe concentrated liquidity and automated routing, but live status was not verified, so those are not reflected in capabilities. Scripts captured from real unsigned transactions on 2026-10-14 and confirmed on chain; a route through a contract not listed here is refused by the signer guard."
 }

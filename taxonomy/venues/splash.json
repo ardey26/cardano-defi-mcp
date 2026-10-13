@@ -6,5 +6,8 @@
   "description": "Cardano DEX combining AMM pools with a virtual limit order book, so a single order can draw on both liquidity sources. SPLASH locks to veSPLASH for a share of protocol fees.",
   "assets": ["ADA", "SPLASH"],
   "capabilities": ["trade.swap", "earn.liquidity", "earn.stake"],
-  "notes": "Splash is the Cardano side of the former Spectrum Finance, which split into Splash (Cardano) and ErgoDEX (Ergo); Cardano-side Spectrum pools migrated here. Asset list is restricted to what could be confirmed from official sources (ADA and the SPLASH token) — no authoritative top-pools listing was obtained, so it is incomplete rather than exhaustive."
+  "scripts": [
+    {"hash": "464eeee89f05aff787d40045af2a40a83fd96c513197d32fbc54ff02", "role": "spend", "label": "order", "source": "https://cexplorer.io/script/464eeee89f05aff787d40045af2a40a83fd96c513197d32fbc54ff02"}
+  ],
+  "notes": "Splash is the Cardano side of the former Spectrum Finance, which split into Splash (Cardano) and ErgoDEX (Ergo); Cardano-side Spectrum pools migrated here. Asset list is restricted to what could be confirmed from official sources (ADA and the SPLASH token) — no authoritative top-pools listing was obtained, so it is incomplete rather than exhaustive. Scripts captured from real unsigned transactions on 2026-10-14 and confirmed on chain; a route through a contract not listed here is refused by the signer guard."
 }

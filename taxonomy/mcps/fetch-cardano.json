@@ -9,11 +9,11 @@
   ],
   "auth": "none",
   "tools": [
-    { "name": "cardano_aggregate_quote", "capability": "trade.swap", "venues": ["minswap", "muesliswap", "splash", "sundaeswap", "wingriders"], "effect": "read", "notes": "Best route across the DEXes Fetch aggregates, with per-DEX split; builds no transaction." },
-    { "name": "cardano_build_swap", "capability": "trade.swap", "venues": ["minswap", "muesliswap", "splash", "sundaeswap", "wingriders"], "effect": "unsigned_tx" },
+    { "name": "cardano_aggregate_quote", "capability": "trade.swap", "venues": ["minswap", "splash", "sundaeswap", "wingriders"], "effect": "read", "notes": "Best route across the DEXes Fetch aggregates, with per-DEX split; builds no transaction." },
+    { "name": "cardano_build_swap", "capability": "trade.swap", "venues": ["minswap", "splash", "sundaeswap", "wingriders"], "effect": "unsigned_tx" },
     { "name": "cardano_latest_price", "capability": "data.market", "effect": "read" },
     { "name": "cardano_trade_history", "capability": "data.market", "effect": "read" },
     { "name": "cardano_yield_opportunities", "capability": "data.market", "venues": ["liqwid", "indigo"], "effect": "read", "notes": "Also covers Surf, which is not in this index." }
   ],
-  "notes": "Verified by tools/list on 2026-10-13 (6 tools); holds no keys. A DEX aggregator. Its swap venues come from live quotes on 2026-10-13, not its README: ADA to iUSD routed through Minswap, WingRiders, VyFinance and CSwap, and its no-route error listed SundaeSwap, Splash and MuesliSwap as routable too. VyFinance, CSwap and Shadowbook are not in this index. cardano_search_tokens (ticker to policyId lookup) is not classified. Optional FETCH_API_TOKEN raises rate limits."
+  "notes": "Verified by tools/list on 2026-10-13 (6 tools); holds no keys. A DEX aggregator. Its swap venues come from live quotes on 2026-10-13, not its README: ADA to iUSD routed through Minswap, WingRiders, VyFinance and CSwap, and builds with all other DEXes excluded reached SundaeSwap and Splash. MuesliSwap pools are reported but not routable. VyFinance, CSwap and Shadowbook are not in this index. cardano_search_tokens (ticker to policyId lookup) is not classified. Optional FETCH_API_TOKEN raises rate limits."
 }

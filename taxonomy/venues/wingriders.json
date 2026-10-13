@@ -6,5 +6,9 @@
   "description": "Constant-product AMM DEX built on Cardano's eUTxO model, with dedicated stableswap pools for pegged assets. LP positions accrue ADA staking rewards alongside trading fees.",
   "assets": ["ADA", "WRT", "USDC", "USDT", "DJED", "iUSD"],
   "capabilities": ["trade.swap", "earn.liquidity", "earn.stake"],
-  "notes": "Asset list is based on the stableswap pairs named on WingRiders' own product pages (USDC, USDT, DJED, iUSD) plus ADA and the WRT governance token. Concentrated-liquidity pools were proposed in a 2023 Catalyst proposal but no evidence was found that they shipped."
+  "scripts": [
+    {"hash": "86ae9eebd8b97944a45201e4aec1330a72291af2d071644bba015959", "role": "spend", "label": "V1 order", "source": "https://cexplorer.io/script/86ae9eebd8b97944a45201e4aec1330a72291af2d071644bba015959"},
+    {"hash": "c134d839a64a5dfb9b155869ef3f34280751a622f69958baa8ffd29c", "role": "spend", "label": "V2 order", "source": "https://cexplorer.io/script/c134d839a64a5dfb9b155869ef3f34280751a622f69958baa8ffd29c"}
+  ],
+  "notes": "Asset list is based on the stableswap pairs named on WingRiders' own product pages (USDC, USDT, DJED, iUSD) plus ADA and the WRT governance token. Concentrated-liquidity pools were proposed in a 2023 Catalyst proposal but no evidence was found that they shipped. Scripts captured from real unsigned transactions on 2026-10-14 and confirmed on chain; a route through a contract not listed here is refused by the signer guard."
 }

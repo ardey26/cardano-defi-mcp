@@ -2,6 +2,7 @@ import { CML } from '@lucid-evolution/lucid';
 import { describe, expect, it } from 'vitest';
 import { allowlistFrom, assertGuarded, contractsTouched, thirdPartyPayments, type ResolveInputs } from '../wallet/guard.js';
 import type { Venue } from '../taxonomy/schema.js';
+import { loadVenues } from '../taxonomy/index.js';
 
 const ORDER = 'a1'.repeat(28);
 const POLICY = 'b2'.repeat(28);
@@ -185,5 +186,34 @@ describe('thirdPartyPayments', () => {
     ).to_address();
     const cbor = tx({ outputs: [{ to: byron, lovelace: 4n }] });
     expect(thirdPartyPayments(cbor, WALLET).lovelace).toBe(4n);
+  });
+});
+
+describe('the published taxonomy', () => {
+  const published = allowlistFrom(loadVenues());
+  const realGuard = (cbor: string) =>
+    assertGuarded(cbor, { walletAddress: WALLET, resolve: resolver(), allowlist: published, maxThirdPartyLovelace: 5_000_000n, checkPayments: true });
+
+  it.each([
+    ['minswap', 'c3e28c36c3447315ba5a56f33da6a6ddc1770a876a8d9f0cb3a97c4c'],
+    ['wingriders', 'c134d839a64a5dfb9b155869ef3f34280751a622f69958baa8ffd29c'],
+    ['sundaeswap', 'fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077'],
+    ['splash', '464eeee89f05aff787d40045af2a40a83fd96c513197d32fbc54ff02'],
+  ])('lets a swap order to %s through, with Fetch\'s 1 ADA fee', async (venue, order) => {
+    const cbor = tx({ outputs: [{ to: scriptAddress(order) }, { to: keyAddress(), lovelace: 1_000_000n }, { to: wallet }] });
+    expect((await realGuard(cbor)).contracts).toEqual([expect.objectContaining({ hash: order, role: 'spend', venue })]);
+  });
+
+  it('lets an Indigo CDP open through', async () => {
+    const cbor = tx({
+      outputs: [{ to: scriptAddress('ff0b10bff20e4b68b491492e5ba6c8048a704763b0a45ce2995da0be') }, { to: wallet }],
+      mint: 'f66d78b4a3cb3d37afa0ec36461e51ecbde00f26c8f0a68f94b69880',
+      withdrawFrom: '4949403eece2eea554df601a883c50d0ef005fa66e7a7300bad5ebc2',
+    });
+    expect((await realGuard(cbor)).contracts.every((c) => c.venue === 'indigo')).toBe(true);
+  });
+
+  it('refuses a DEX that is not in the taxonomy', async () => {
+    await expect(realGuard(tx({ outputs: [{ to: scriptAddress(UNLISTED) }] }))).rejects.toThrow(/not in the taxonomy/);
   });
 });

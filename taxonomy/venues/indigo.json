@@ -6,5 +6,14 @@
   "description": "Synthetic asset protocol on Cardano where users lock ADA or whitelisted native tokens in a CDP to mint oracle-priced iAssets. Liquidations are absorbed by Liquity-style stability pools.",
   "assets": ["ADA", "INDY", "iUSD", "iBTC", "iETH", "iJPY", "iEUR"],
   "capabilities": ["mint.cdp", "earn.stability_pool", "earn.stake"],
-  "notes": "iAsset list is from the official docs (docs.indigoprotocol.io iAssets page): iUSD, iBTC, iETH, plus iJPY and iEUR added by DAO governance. iSOL appears in secondary sources but not in the official docs page, so it is excluded. INDY is the fixed-supply governance token; ADA is the primary collateral."
+  "scripts": [
+    {"hash": "ff0b10bff20e4b68b491492e5ba6c8048a704763b0a45ce2995da0be", "role": "spend", "label": "CDP", "source": "https://cexplorer.io/script/ff0b10bff20e4b68b491492e5ba6c8048a704763b0a45ce2995da0be"},
+    {"hash": "95c1458dad9dfddfab22d163fccbb9a8de483ace1e1c990b1f5e3eff", "role": "spend", "label": "CDP creator", "source": "https://cexplorer.io/script/95c1458dad9dfddfab22d163fccbb9a8de483ace1e1c990b1f5e3eff"},
+    {"hash": "46ffe1d162ef5c1c4d4c0b92eb410e8148c59c547952ebac39622abd", "role": "spend", "label": "receives the iAsset mint fee", "source": "https://cexplorer.io/script/46ffe1d162ef5c1c4d4c0b92eb410e8148c59c547952ebac39622abd"},
+    {"hash": "708f5e6d597fc038d09a738d7be32edd6ea779d6feb32a53668d9050", "role": "mint", "label": "CDP token", "source": "https://cexplorer.io/script/708f5e6d597fc038d09a738d7be32edd6ea779d6feb32a53668d9050"},
+    {"hash": "f66d78b4a3cb3d37afa0ec36461e51ecbde00f26c8f0a68f94b69880", "role": "mint", "label": "iAssets (iUSD, iETH, iBTC…)", "source": "https://cexplorer.io/script/f66d78b4a3cb3d37afa0ec36461e51ecbde00f26c8f0a68f94b69880"},
+    {"hash": "4949403eece2eea554df601a883c50d0ef005fa66e7a7300bad5ebc2", "role": "stake", "label": "withdraw-zero validator", "source": "https://cexplorer.io/script/4949403eece2eea554df601a883c50d0ef005fa66e7a7300bad5ebc2"},
+    {"hash": "4cb907af98c1ed5ee9f251691a0ec909f2a26b583ed271f2a88a55cb", "role": "stake", "label": "withdraw-zero validator", "source": "https://cexplorer.io/script/4cb907af98c1ed5ee9f251691a0ec909f2a26b583ed271f2a88a55cb"}
+  ],
+  "notes": "iAsset list is from the official docs (docs.indigoprotocol.io iAssets page): iUSD, iBTC, iETH, plus iJPY and iEUR added by DAO governance. iSOL appears in secondary sources but not in the official docs page, so it is excluded. INDY is the fixed-supply governance token; ADA is the primary collateral. Scripts captured from real unsigned transactions on 2026-10-14 and confirmed on chain; a route through a contract not listed here is refused by the signer guard."
 }
