@@ -11,10 +11,13 @@
  * cover that gap; see specs/taxonomy-gateway.md "Threat model".
  */
 
-import { CML, paymentCredentialOf } from '@lucid-evolution/lucid';
+import { CML } from '@lucid-evolution/lucid';
 
 import type { ScriptRole, Venue } from '../taxonomy/schema.js';
 import { formatAmount } from './policy.js';
+
+/** The most a script transaction may put at risk as collateral; Lucid declares 5 ADA. */
+export const MAX_COLLATERAL_LOVELACE = 5_000_000n;
 
 /** Maps each "<txhash>#<index>" it can find to the address that UTxO sits at. */
 export type ResolveInputs = (refs: string[]) => Promise<Map<string, string>>;
@@ -73,24 +76,71 @@ function refsOf(list: CML.TransactionInputList | undefined): string[] {
   return refs;
 }
 
-/** Every script hash inside a certificate (stake, DRep or committee credentials). */
-function certificateScripts(json: unknown, found: string[] = []): string[] {
-  if (Array.isArray(json)) json.forEach((item) => certificateScripts(item, found));
-  else if (json && typeof json === 'object') {
-    for (const [key, value] of Object.entries(json)) {
-      if (key === 'Script' && value && typeof value === 'object' && typeof (value as { hash?: unknown }).hash === 'string') {
-        found.push((value as { hash: string }).hash);
-      } else certificateScripts(value, found);
-    }
-  }
-  return found;
+/**
+ * The wallet's own address exactly: its payment key AND its stake part. Change
+ * sent to the wallet's payment key under someone else's stake key would leave
+ * the wallet's view and hand that key the staking rewards.
+ */
+export function isOwnAddress(address: CML.Address, walletAddress: string): boolean {
+  const wallet = CML.Address.from_bech32(walletAddress);
+  const payment = address.payment_cred();
+  if (payment?.kind() !== CML.CredentialKind.PubKey) return false;
+  if (payment.to_cbor_hex() !== wallet.payment_cred()?.to_cbor_hex()) return false;
+  return address.staking_cred()?.to_cbor_hex() === wallet.staking_cred()?.to_cbor_hex();
 }
 
-export async function contractsTouched(unsignedTxCbor: string, resolve: ResolveInputs): Promise<Touched[]> {
-  const body = parseTx(unsignedTxCbor).body();
+/**
+ * Body fields that move value outside outputs, or that the guard cannot vouch
+ * for, are refused outright: listing threats one by one fails open on the
+ * field nobody listed.
+ */
+function assertSupportedFields(tx: CML.Transaction): void {
+  const body = tx.body();
+  if (!tx.is_valid()) {
+    throw new Error('refused: this transaction is marked invalid, which forfeits its collateral instead of executing.');
+  }
+  if ((tx.witness_set().vkeywitnesses()?.len() ?? 0) > 0 || (tx.witness_set().bootstrap_witnesses()?.len() ?? 0) > 0) {
+    throw new Error(
+      'refused: this transaction is already signed by another key. Rebuild it unsigned so every part of it can be checked.',
+    );
+  }
+  if ((body.certs()?.len() ?? 0) > 0) {
+    throw new Error(
+      'refused: this transaction carries certificates. Their deposits leave the wallet outside every value check, ' +
+        'and this wallet never needs one.',
+    );
+  }
+  const donation = body.donation() ?? 0n;
+  if (donation > 0n) {
+    throw new Error(`refused: this transaction makes a treasury donation of ${formatAmount('cardano', donation)}.`);
+  }
   if (body.voting_procedures() || body.proposal_procedures()) {
     throw new Error('refused: this transaction carries governance votes or proposals, which the signer guard does not support.');
   }
+}
+
+function assertCollateralBounded(body: CML.TransactionBody, walletAddress: string): void {
+  const collateralReturn = body.collateral_return();
+  if (collateralReturn && !isOwnAddress(collateralReturn.address(), walletAddress)) {
+    throw new Error("refused: this transaction's collateral return pays an address that is not this wallet.");
+  }
+  if ((body.collateral_inputs()?.len() ?? 0) === 0) return;
+  const total = body.total_collateral();
+  if (total === undefined) {
+    throw new Error('refused: this transaction declares no total collateral, so the collateral it could forfeit is unbounded.');
+  }
+  if (total > MAX_COLLATERAL_LOVELACE) {
+    throw new Error(
+      `refused: this transaction risks a total collateral of ${formatAmount('cardano', total)}; the limit is ` +
+        `${formatAmount('cardano', MAX_COLLATERAL_LOVELACE)}.`,
+    );
+  }
+}
+
+export async function contractsTouched(unsignedTxCbor: string, resolve: ResolveInputs): Promise<Touched[]> {
+  const tx = parseTx(unsignedTxCbor);
+  assertSupportedFields(tx);
+  const body = tx.body();
 
   const touched: Touched[] = [];
   const outputs = body.outputs();
@@ -126,13 +176,6 @@ export async function contractsTouched(unsignedTxCbor: string, resolve: ResolveI
     if (hash) touched.push({ hash, role: 'stake', where: 'withdrawal' });
   }
 
-  const certs = body.certs();
-  for (let i = 0; i < (certs?.len() ?? 0); i++) {
-    for (const hash of certificateScripts(JSON.parse(certs!.get(i).to_json()))) {
-      touched.push({ hash, role: 'stake', where: `certificate ${i}` });
-    }
-  }
-
   const seen = new Set<string>();
   return touched.filter((t) => {
     const key = `${t.hash}:${t.role}`;
@@ -155,15 +198,13 @@ export function thirdPartyPayments(
   unsignedTxCbor: string,
   walletAddress: string,
 ): { lovelace: bigint; tokenRecipients: string[] } {
-  const ours = paymentCredentialOf(walletAddress).hash;
   const outputs = parseTx(unsignedTxCbor).body().outputs();
   let lovelace = 0n;
   const tokenRecipients: string[] = [];
   for (let i = 0; i < outputs.len(); i++) {
     const output = outputs.get(i);
-    const cred = output.address().payment_cred();
-    if (cred?.kind() === CML.CredentialKind.Script) continue;
-    if (cred?.kind() === CML.CredentialKind.PubKey && cred.as_pub_key()?.to_hex() === ours) continue;
+    if (output.address().payment_cred()?.kind() === CML.CredentialKind.Script) continue;
+    if (isOwnAddress(output.address(), walletAddress)) continue;
     lovelace += output.amount().coin();
     if (output.amount().multi_asset().policy_count() > 0) {
       tokenRecipients.push(output.address().to_bech32(undefined) ?? `output ${i}`);
@@ -174,6 +215,7 @@ export function thirdPartyPayments(
 
 export async function assertGuarded(unsignedTxCbor: string, options: GuardOptions): Promise<GuardReport> {
   const touched = await contractsTouched(unsignedTxCbor, options.resolve);
+  assertCollateralBounded(parseTx(unsignedTxCbor).body(), options.walletAddress);
   const unlisted = touched.filter((t) => !options.allowlist.has(`${t.hash}:${t.role}`));
   if (unlisted.length > 0) {
     throw new Error(

@@ -6,11 +6,11 @@
  * Nothing rebuilds the body, so a pinned Pyth price and validity range survive.
  */
 
-import { Blockfrost, CML, Lucid, paymentCredentialOf } from '@lucid-evolution/lucid';
+import { Blockfrost, CML, Lucid } from '@lucid-evolution/lucid';
 import type { LucidEvolution } from '@lucid-evolution/lucid';
 
 import { getBaseUrl, getProjectId } from '../adapters/blockfrost.js';
-import type { ResolveInputs } from './guard.js';
+import { isOwnAddress, type ResolveInputs } from './guard.js';
 import { addressOf, cardanoKey, network, type Net } from './keys.js';
 
 export const EXPLORERS: Record<Net, string> = {
@@ -26,7 +26,7 @@ export interface Outflow {
   /** what the policy checks: everything that does not come back to the wallet, plus the fee */
   lovelace: bigint;
   fee: bigint;
-  /** lovelace in outputs that pay back to this wallet's payment credential */
+  /** lovelace in outputs that pay back to this wallet's exact address (payment and stake part) */
   returnedToWallet: bigint;
   outputs: number;
   conservative: true;
@@ -62,7 +62,6 @@ export function cardanoOutflowLovelace(unsignedTxCbor: string, walletAddress: st
     );
   }
 
-  const ours = paymentCredentialOf(walletAddress).hash;
   const body = tx.body();
   const outputs = body.outputs();
   const fee = body.fee();
@@ -72,14 +71,9 @@ export function cardanoOutflowLovelace(unsignedTxCbor: string, walletAddress: st
   for (let i = 0; i < outputs.len(); i++) {
     const output = outputs.get(i);
     const coin = output.amount().coin();
-    let mine = false;
-    try {
-      mine = paymentCredentialOf(output.address().to_bech32(undefined)).hash === ours;
-    } catch {
-      // An address this build cannot express as bech32 (e.g. Byron) is not ours.
-      mine = false;
-    }
-    if (mine) returned += coin;
+    // Only the wallet's exact address counts as returned: its payment key under a
+    // foreign stake key is value that leaves the wallet's view.
+    if (isOwnAddress(output.address(), walletAddress)) returned += coin;
     else leaving += coin;
   }
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { allowlistFrom, assertGuarded, contractsTouched, thirdPartyPayments, type ResolveInputs } from '../wallet/guard.js';
 import type { Venue } from '../taxonomy/schema.js';
 import { loadVenues } from '../taxonomy/index.js';
+import { cardanoOutflowLovelace } from '../wallet/cardano.js';
 
 const ORDER = 'a1'.repeat(28);
 const POLICY = 'b2'.repeat(28);
@@ -38,7 +39,12 @@ interface Shape {
   mint?: string;
   withdrawFrom?: string;
   delegateScript?: string;
+  registerKey?: boolean;
   vote?: boolean;
+  donation?: bigint;
+  invalid?: boolean;
+  collateral?: { inputs: string[]; total?: bigint; returnTo?: CML.Address };
+  signedBy?: CML.PrivateKey;
 }
 
 function ref(r: string) {
@@ -84,12 +90,35 @@ function tx(shape: Shape): string {
     ));
     body.set_certs(certs);
   }
+  if (shape.registerKey) {
+    const certs = CML.CertificateList.new();
+    certs.add(CML.Certificate.new_stake_registration(CML.Credential.new_pub_key(keyHash())));
+    body.set_certs(certs);
+  }
+  if (shape.donation) body.set_donation(shape.donation);
+  if (shape.collateral) {
+    const col = CML.TransactionInputList.new();
+    for (const r of shape.collateral.inputs) col.add(ref(r));
+    body.set_collateral_inputs(col);
+    if (shape.collateral.total !== undefined) body.set_total_collateral(shape.collateral.total);
+    if (shape.collateral.returnTo) {
+      body.set_collateral_return(
+        CML.TransactionOutput.new(shape.collateral.returnTo, CML.Value.new(10_000_000n, CML.MultiAsset.new()), undefined, undefined),
+      );
+    }
+  }
   if (shape.vote) {
     const vp = CML.VotingProcedures.new();
     vp.insert(CML.Voter.new_d_rep_key_hash(keyHash()), CML.MapGovActionIdToVotingProcedure.new());
     body.set_voting_procedures(vp);
   }
-  return CML.Transaction.new(body, CML.TransactionWitnessSet.new(), true, undefined).to_cbor_hex();
+  const witnesses = CML.TransactionWitnessSet.new();
+  if (shape.signedBy) {
+    const vkeys = CML.VkeywitnessList.new();
+    vkeys.add(CML.make_vkey_witness(CML.hash_transaction(body), shape.signedBy));
+    witnesses.set_vkeywitnesses(vkeys);
+  }
+  return CML.Transaction.new(body, witnesses, !shape.invalid, undefined).to_cbor_hex();
 }
 
 /** Every input resolves to the wallet unless listed in `at`. */
@@ -100,11 +129,11 @@ const guard = (cbor: string, resolve = resolver(), checkPayments = true, max = 5
   assertGuarded(cbor, { walletAddress: WALLET, resolve, allowlist, maxThirdPartyLovelace: max, checkPayments });
 
 describe('contractsTouched', () => {
-  it('collects output, input, mint, withdrawal and certificate scripts with their roles', async () => {
+  it('collects output, input, mint and withdrawal scripts with their roles', async () => {
     const cbor = tx({
       inputs: [`${TX0}#0`, `${TX1}#3`],
       outputs: [{ to: scriptAddress(ORDER) }, { to: wallet }],
-      mint: POLICY, withdrawFrom: STAKER, delegateScript: STAKER,
+      mint: POLICY, withdrawFrom: STAKER,
     });
     const touched = await contractsTouched(cbor, resolver({ [`${TX1}#3`]: scriptAddress(ORDER) }));
     expect(touched.map((t) => `${t.hash.slice(0, 4)}:${t.role}`).sort()).toEqual(['a1a1:spend', 'b2b2:mint', 'c3c3:stake']);
@@ -215,5 +244,41 @@ describe('the published taxonomy', () => {
 
   it('refuses a DEX that is not in the taxonomy', async () => {
     await expect(realGuard(tx({ outputs: [{ to: scriptAddress(UNLISTED) }] }))).rejects.toThrow(/not in the taxonomy/);
+  });
+});
+
+describe('transaction shape (review fixes)', () => {
+  it.each([
+    ['a stake-key registration, whose deposit leaves the wallet unseen', { registerKey: true }, /refused: .*certificates/],
+    ['a certificate for a listed script', { delegateScript: STAKER }, /refused: .*certificates/],
+    ['a treasury donation', { donation: 1_000_000_000n }, /refused: .*treasury donation/],
+    ['a transaction marked invalid, which forfeits collateral', { invalid: true }, /refused: .*marked invalid/],
+  ] as const)('refuses %s', async (_label, shape, message) => {
+    await expect(guard(tx(shape))).rejects.toThrow(message);
+  });
+
+  it('refuses a transaction that already carries signatures', async () => {
+    await expect(guard(tx({ signedBy: CML.PrivateKey.generate_ed25519() }))).rejects.toThrow(/refused: .*already signed/);
+  });
+
+  it('refuses collateral that returns to a stranger, is undeclared, or exceeds 5 ADA', async () => {
+    const inputs = [`${TX1}#7`];
+    await expect(guard(tx({ collateral: { inputs, total: 5_000_000n, returnTo: keyAddress() } }))).rejects.toThrow(
+      /refused: .*collateral return/,
+    );
+    await expect(guard(tx({ collateral: { inputs, returnTo: wallet } }))).rejects.toThrow(/refused: .*total collateral/);
+    await expect(guard(tx({ collateral: { inputs, total: 6_000_000n, returnTo: wallet } }))).rejects.toThrow(
+      /refused: .*total collateral of 6 ADA/,
+    );
+    await expect(guard(tx({ collateral: { inputs, total: 5_000_000n, returnTo: wallet } }))).resolves.toBeDefined();
+  });
+
+  it("counts an output to the wallet's payment key with a foreign stake key as a stranger", () => {
+    const foreignStake = CML.BaseAddress.new(
+      1, wallet.payment_cred()!, CML.Credential.new_pub_key(keyHash()),
+    ).to_address();
+    const cbor = tx({ outputs: [{ to: foreignStake, lovelace: 500_000_000n }] });
+    expect(thirdPartyPayments(cbor, WALLET).lovelace).toBe(500_000_000n);
+    expect(cardanoOutflowLovelace(cbor, WALLET).lovelace).toBe(500_000_000n + 200_000n);
   });
 });

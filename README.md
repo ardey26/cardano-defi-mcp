@@ -503,6 +503,16 @@ Reference inputs are read-only and are not counted. The guard refuses the transa
 - **it pays more than `WALLET_MAX_THIRD_PARTY_LOVELACE` in ADA to such addresses.** The default is
   5 ADA, which covers aggregator fees. Applies to `sign_and_submit_cardano`.
 - **an input cannot be resolved.** The guard never signs blind.
+- **it carries something that moves value outside its outputs**:
+  - any certificate, since deposits would leave the wallet unseen;
+  - a treasury donation;
+  - an `is_valid = false` flag, which forfeits collateral;
+  - a collateral return to another address;
+  - collateral that is undeclared or above 5 ADA;
+  - signatures already attached by another key.
+
+Change counts as the wallet's own only at its exact address. The wallet's payment key under someone
+else's stake key counts as a stranger.
 
 The allowlist is the taxonomy bundled with the installed version, not a file the agent can edit.
 Changing it means a reviewed PR and a new install.
