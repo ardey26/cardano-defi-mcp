@@ -22,7 +22,7 @@ import {
 } from './cardano.js';
 import { allowlistFrom, assertGuarded } from './guard.js';
 import { chainEntry, explorerTxUrl, publicClientFor, walletClientFor, EVM_CHAINS } from './evm.js';
-import { cardanoAddress, evmAddress, hasCardanoKey, hasEvmKey, network, redact } from './keys.js';
+import { cardanoAddress, cardanoKey, evmAddress, hasCardanoKey, hasEvmKey, legacyAddressOf, network, redact } from './keys.js';
 import {
   assertEvmChainAllowed,
   assertSpendAllowed,
@@ -121,7 +121,18 @@ export function registerWalletTools(server: McpServer): void {
           const address = cardanoAddress();
           try {
             const balance = await getBalance(address);
-            return { address, balance: formatAmount('cardano', BigInt(balance.lovelace)), assets: balance.assets };
+            // Funds at the enterprise address earlier versions used stay spendable; report them if any.
+            const legacyAddress = legacyAddressOf(cardanoKey(), network());
+            const legacy = await getBalance(legacyAddress).catch(() => undefined);
+            const legacyLovelace = legacy ? BigInt(legacy.lovelace) : 0n;
+            return {
+              address,
+              balance: formatAmount('cardano', BigInt(balance.lovelace)),
+              assets: balance.assets,
+              ...(legacyLovelace > 0n
+                ? { legacyAddress, legacyBalance: formatAmount('cardano', legacyLovelace), legacyNote: 'spent automatically; change returns to address' }
+                : {}),
+            };
           } catch (err) {
             return { address, error: redact(err instanceof Error ? err.message : String(err)) };
           }

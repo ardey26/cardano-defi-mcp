@@ -525,6 +525,16 @@ transaction, one rolling 24 hours — plus an EVM chain allowlist.
   (closing a CDP, for instance). Over-counting denies more than it should, never less. See the comment
   on `cardanoOutflowLovelace` in `src/wallet/cardano.ts`.
 
+### Wallet address
+
+The Cardano key signs for a **base address**, where the payment and stake credential are both that key.
+DEX aggregators such as Fetch refuse an address without a stake part, so an enterprise address could
+not take a swap.
+
+Earlier versions used the key's enterprise address (`addr1v…`). Funds left there stay spendable: the
+wallet selects UTxOs from both addresses and sends change to the base address. `wallet_status` shows
+any balance left at the old address.
+
 ### Signer guard
 
 Before signing a Cardano transaction, the wallet reads it and collects every contract it touches:

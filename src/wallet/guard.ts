@@ -77,16 +77,18 @@ function refsOf(list: CML.TransactionInputList | undefined): string[] {
 }
 
 /**
- * The wallet's own address exactly: its payment key AND its stake part. Change
+ * The wallet's own address: its payment key, with either its own stake part or
+ * none (the legacy enterprise form, which the wallet still spends from). Change
  * sent to the wallet's payment key under someone else's stake key would leave
- * the wallet's view and hand that key the staking rewards.
+ * the wallet's view and hand that key the staking rewards, so it is a stranger.
  */
 export function isOwnAddress(address: CML.Address, walletAddress: string): boolean {
   const wallet = CML.Address.from_bech32(walletAddress);
   const payment = address.payment_cred();
   if (payment?.kind() !== CML.CredentialKind.PubKey) return false;
   if (payment.to_cbor_hex() !== wallet.payment_cred()?.to_cbor_hex()) return false;
-  return address.staking_cred()?.to_cbor_hex() === wallet.staking_cred()?.to_cbor_hex();
+  const stake = address.staking_cred()?.to_cbor_hex();
+  return stake === undefined || stake === wallet.staking_cred()?.to_cbor_hex();
 }
 
 /**

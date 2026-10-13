@@ -11,6 +11,7 @@ import type { LucidEvolution } from '@lucid-evolution/lucid';
 
 import { getBaseUrl, getProjectId } from '../adapters/blockfrost.js';
 import { isOwnAddress, type ResolveInputs } from './guard.js';
+import { makeKeyedApi } from './keyed-wallet.js';
 import { addressOf, cardanoKey, network, type Net } from './keys.js';
 
 export const EXPLORERS: Record<Net, string> = {
@@ -83,10 +84,10 @@ export function cardanoOutflowLovelace(unsignedTxCbor: string, walletAddress: st
 export async function mkSigner(): Promise<{ lucid: LucidEvolution; address: string }> {
   const key = cardanoKey();
   const net = network();
-  const lucid = await Lucid(new Blockfrost(getBaseUrl(), getProjectId()), net);
-  lucid.selectWallet.fromPrivateKey(key);
-  // Derived locally rather than asked of the wallet: identical result, and it
-  // keeps the address readable when no Blockfrost key is configured.
+  const provider = new Blockfrost(getBaseUrl(), getProjectId());
+  const lucid = await Lucid(provider, net);
+  // Not selectWallet.fromPrivateKey: that wallet is an enterprise address, which aggregators refuse.
+  lucid.selectWallet.fromAPI(makeKeyedApi(key, net, provider));
   return { lucid, address: addressOf(key, net) };
 }
 

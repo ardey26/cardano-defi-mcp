@@ -103,15 +103,25 @@ export function evmAddress(): Hex {
 }
 
 /**
- * Mainnet/preprod enterprise address for a bech32 ed25519 key — the same
- * derivation `lucid.selectWallet.fromPrivateKey` performs, done without a
- * provider so `gen` needs no Blockfrost key.
+ * The wallet's address: a base address whose payment AND stake credential are
+ * this one key. DEX aggregators (Fetch, for one) refuse an address without a
+ * stake part, so the old enterprise address could not take a swap. Derived
+ * without a provider so `gen` needs no Blockfrost key. 'Custom' is the offline
+ * emulator's network (id 0).
  */
-export function addressOf(key: string, net: Net): string {
-  const pubKeyHash = CML.PrivateKey.from_bech32(key).to_public().hash();
-  return CML.EnterpriseAddress.new(net === 'Mainnet' ? 1 : 0, CML.Credential.new_pub_key(pubKeyHash))
-    .to_address()
-    .to_bech32(undefined);
+export function addressOf(key: string, net: Net | 'Custom'): string {
+  const credential = CML.Credential.new_pub_key(CML.PrivateKey.from_bech32(key).to_public().hash());
+  return CML.BaseAddress.new(net === 'Mainnet' ? 1 : 0, credential, credential).to_address().to_bech32(undefined);
+}
+
+/**
+ * The enterprise address earlier versions used for the same key. Funds left
+ * there stay spendable: the wallet selects UTxOs from both addresses and sends
+ * change to the base address.
+ */
+export function legacyAddressOf(key: string, net: Net | 'Custom'): string {
+  const credential = CML.Credential.new_pub_key(CML.PrivateKey.from_bech32(key).to_public().hash());
+  return CML.EnterpriseAddress.new(net === 'Mainnet' ? 1 : 0, credential).to_address().to_bech32(undefined);
 }
 
 export function cardanoAddress(): string {
