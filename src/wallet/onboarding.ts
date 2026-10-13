@@ -3,7 +3,7 @@
  * trade for me", without them ever opening a file or an editor.
  *
  *   setup_wallet   creates the burner keys and says how to fund them
- *   configure      stores the Blockfrost key (and any Bazaar API override)
+ *   configure      stores the Blockfrost key
  *
  * Key generation is shared with `gen` on the command line, and keeps its rule:
  * an existing key is never overwritten. A tool that silently replaced a funded
@@ -23,7 +23,6 @@ import { generatePrivateKey as generateEvmKey, privateKeyToAccount } from 'viem/
 import { addressOf, CARDANO_KEY_ENV, EVM_KEY_ENV, network, redact } from './keys.js';
 import {
   configPath,
-  DEFAULT_BAZAAR_API_URL,
   maskSecret,
   readConfig,
   resolveCredentialsPath,
@@ -172,8 +171,7 @@ export function registerOnboardingTools(server: McpServer): void {
         'Persist configuration to ~/.cardano-defi-mcp/config.json and apply it to the running server. ' +
         'blockfrostProjectId unlocks get_balance, wallet_status ADA balances, open_cdp/close_cdp and ' +
         'send_cardano — a free key takes a minute at https://blockfrost.io (create a project on the Cardano ' +
-        'mainnet network and copy its project id). bazaarApiUrl overrides the routing backend and is only ' +
-        'needed against a local or private deployment. Call with no arguments to read back what is set. ' +
+        'mainnet network and copy its project id). Call with no arguments to read back what is set. ' +
         'Secrets are echoed masked, never in full.',
       inputSchema: {
         blockfrostProjectId: z
@@ -181,26 +179,17 @@ export function registerOnboardingTools(server: McpServer): void {
           .min(1)
           .optional()
           .describe('Blockfrost project id, e.g. mainnet… — stored on disk, never returned in full'),
-        bazaarApiUrl: z
-          .string()
-          .url()
-          .optional()
-          .describe(`Base URL of the BazaarSwap routing backend (default ${DEFAULT_BAZAAR_API_URL})`),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ blockfrostProjectId, bazaarApiUrl }) =>
+    async ({ blockfrostProjectId }) =>
       onboardingResult(async () => {
         const changed: string[] = [];
         if (blockfrostProjectId !== undefined) {
           process.env.BLOCKFROST_PROJECT_ID = blockfrostProjectId;
           changed.push('blockfrostProjectId');
         }
-        if (bazaarApiUrl !== undefined) {
-          process.env.BAZAAR_API_URL = bazaarApiUrl;
-          changed.push('bazaarApiUrl');
-        }
-        if (changed.length > 0) writeConfig({ blockfrostProjectId, bazaarApiUrl });
+        if (changed.length > 0) writeConfig({ blockfrostProjectId });
 
         const config = readConfig();
         const blockfrost = process.env.BLOCKFROST_PROJECT_ID;
@@ -210,7 +199,6 @@ export function registerOnboardingTools(server: McpServer): void {
           changed,
           configured: {
             blockfrostProjectId: blockfrost ? maskSecret(blockfrost) : null,
-            bazaarApiUrl: process.env.BAZAAR_API_URL ?? DEFAULT_BAZAAR_API_URL,
             cardanoNetwork: process.env.CARDANO_NETWORK ?? 'mainnet',
             indigoSystemParamsUrl: process.env.INDIGO_SYSTEM_PARAMS_URL ?? null,
           },

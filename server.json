@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ardey26/cardano-defi-mcp",
-  "title": "BazaarSwap Cardano",
+  "title": "Cardano DeFi MCP",
   "description": "Cardano DeFi taxonomy plus unsigned-transaction MCP tools for agents (holds no keys)",
   "version": "0.1.0",
   "repository": {
@@ -25,12 +25,6 @@
           "isSecret": true
         },
         {
-          "name": "BAZAAR_API_URL",
-          "description": "BazaarSwap routing API base URL used by get_quote and build_swap_tx",
-          "isRequired": false,
-          "default": "http://localhost:3001"
-        },
-        {
           "name": "LIQWID_GRAPHQL_URL",
           "description": "Liqwid public GraphQL endpoint (read-only)",
           "isRequired": false,
@@ -41,7 +35,10 @@
           "description": "Cardano network for Blockfrost and Indigo host selection",
           "isRequired": false,
           "default": "mainnet",
-          "choices": ["mainnet", "preprod"]
+          "choices": [
+            "mainnet",
+            "preprod"
+          ]
         },
         {
           "name": "INDIGO_API_URL",

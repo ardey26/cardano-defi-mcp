@@ -62,6 +62,14 @@ interface Prepared {
   calls: GatewayCalls;
   defs: ToolDef[];
   upstreams: Upstream[];
+  byId: Map<string, Upstream>;
+}
+
+export interface Gateway {
+  calls: GatewayCalls;
+  /** A raw upstream call, unlabelled: callers that forward the result must label it themselves. */
+  invoke: (mcpId: string, tool: string, args: Record<string, unknown>) => Promise<CallToolResult>;
+  close: () => Promise<void>;
 }
 
 /**
@@ -75,6 +83,7 @@ function prepare(root: string, options: GatewayOptions): Prepared {
   const calls: GatewayCalls = new Map();
   const defs: ToolDef[] = [];
   const upstreams: Upstream[] = [];
+  const byId = new Map<string, Upstream>();
 
   for (const { mcp, connect, tools } of gatewayMcps(root)) {
     const snapshot = loadSnapshot(mcp.id, root);
@@ -86,6 +95,7 @@ function prepare(root: string, options: GatewayOptions): Prepared {
       upstreamOptions,
     );
     upstreams.push(upstream);
+    byId.set(mcp.id, upstream);
     for (const tool of tools) {
       const entry = snapshot.tools.find((t) => t.name === tool.name);
       if (!entry) throw new Error(`snapshots/${mcp.id}.json has no entry for exposed tool ${tool.name}`);
@@ -113,13 +123,13 @@ function prepare(root: string, options: GatewayOptions): Prepared {
       calls.set(`${mcp.id}/${tool.name}`, name);
     }
   }
-  return { calls, defs, upstreams };
+  return { calls, defs, upstreams, byId };
 }
 
 export function registerGatewayTools(
   server: McpServer,
   options: GatewayOptions = {},
-): { calls: GatewayCalls; close: () => Promise<void> } {
+): Gateway {
   const root = options.root ?? TAXONOMY_ROOT;
   let gateway = prepared.get(root);
   if (!gateway) {
@@ -130,6 +140,10 @@ export function registerGatewayTools(
   const shared = gateway;
   return {
     calls: shared.calls,
+    invoke: async (mcpId, tool, args) => {
+      if (!shared.calls.has(`${mcpId}/${tool}`)) throw new Error(`${mcpId}/${tool} is not served by this gateway`);
+      return shared.byId.get(mcpId)!.call(tool, args);
+    },
     close: async () => {
       if (prepared.get(root) === shared) prepared.delete(root);
       await Promise.all(shared.upstreams.map((u) => u.close()));

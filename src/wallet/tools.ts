@@ -139,7 +139,7 @@ export function registerWalletTools(server: McpServer): void {
         `${SPENDS_REAL_FUNDS} Signs the given EVM transaction with this wallet's key, broadcasts it, waits for ` +
         'the receipt and returns the hash, an explorer link and the receipt status. `value` is checked against ' +
         'the per-transaction and rolling-24h wei caps, and the chain must be on the WALLET_EVM_CHAINS allowlist. ' +
-        'Feed it the `txData` from the main server\'s build_swap_tx. For an ERC-20 source, call approve_erc20 first.',
+        'Feed it the `txData` from build_swap_tx. For an ERC-20 source, call approve_erc20 first.',
       inputSchema: {
         chainId: z.number().int().positive().describe('EVM chain id — must be on the WALLET_EVM_CHAINS allowlist'),
         to: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Target contract or address'),
@@ -284,7 +284,7 @@ export function registerWalletTools(server: McpServer): void {
       title: 'Sign and submit a Cardano transaction',
       description:
         `${SPENDS_REAL_FUNDS} Takes the UNSIGNED transaction CBOR the main server returns (open_cdp, close_cdp, ` +
-        "build_swap_tx on Cardano), adds this wallet's vkey witness and submits it through Blockfrost. The body " +
+        "a swap from a protocol tool), adds this wallet's vkey witness and submits it through Blockfrost. The body " +
         'is never rebuilt, so a pinned Pyth price and validity range survive — submit promptly after building. ' +
         'Before signing, the ADA leaving the wallet is measured CONSERVATIVELY (every output that does not pay ' +
         'back to this wallet, plus the fee) and checked against the lovelace caps. Then the signer guard ' +

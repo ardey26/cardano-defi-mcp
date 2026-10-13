@@ -115,3 +115,12 @@ describe('gateway in the key-holding server (review fix)', () => {
     expect((await registeredToolNames(createMcpServer())).some((n) => n.includes('__'))).toBe(true);
   });
 });
+
+describe('BazaarSwap move-out', () => {
+  it('keeps the grant-named get_quote / build_swap_tx as neutral routers next to the gateway tools', async () => {
+    const names = await registeredToolNames(createMcpServer());
+    expect(names).toEqual(expect.arrayContaining(['get_quote', 'build_swap_tx', 'bazaarswap_mcp__get_quote']));
+    const implementers = loadMcps().flatMap((m) => m.tools.filter((t) => t.implements).map((t) => `${m.id}/${t.name}`));
+    expect(implementers.sort()).toEqual(['bazaarswap-mcp/build_swap_tx', 'bazaarswap-mcp/get_quote']);
+  });
+});

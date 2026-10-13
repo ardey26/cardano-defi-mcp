@@ -1,7 +1,7 @@
 {
   "name": "cardano-defi-mcp",
   "version": "0.1.0",
-  "description": "Cardano DeFi taxonomy + MCP server: agent rails into Cardano DeFi via BazaarSwap cross-chain routing",
+  "description": "Cardano DeFi taxonomy + MCP server: one connection to every listed Cardano DeFi protocol's MCP tools, a gateway that runs them pinned, and a guarded local signer",
   "main": "index.js",
   "bin": {
     "cardano-defi-mcp": "bin/cli.mjs"
@@ -30,7 +30,6 @@
     "validate:taxonomy": "node scripts/validate-taxonomy.mjs",
     "gateway:prefetch": "node scripts/gateway-prefetch.mjs",
     "demo": "npx tsx examples/reference-agent.ts",
-    "execute": "npx tsx examples/execute-swap.ts",
     "execute:cdp": "npx tsx examples/execute-cdp.ts",
     "typecheck": "tsc --noEmit -p tsconfig.check.json"
   },

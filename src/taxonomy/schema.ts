@@ -72,6 +72,8 @@ export const McpToolSchema = z.strictObject({
   effect: EffectSchema,
   // Overrides the server's flag, e.g. an official server's tool that quotes a third-party venue.
   official: z.boolean().optional(),
+  // A standard interface this tool implements, so this server's neutral routers can call it.
+  implements: z.enum(['cross_chain.get_quote', 'cross_chain.build_swap_tx']).optional(),
   // Environment variables the tool needs to work. The gateway passes none, so these tools are not exposed.
   env: z.array(z.string().regex(/^[A-Z][A-Z0-9_]*$/)).min(1).optional(),
   notes: z.string().min(1).optional(),

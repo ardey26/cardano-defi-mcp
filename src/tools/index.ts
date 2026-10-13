@@ -4,7 +4,7 @@ import { registerGatewayTools } from '../gateway/register.js';
 import { SELF_MCP_ID } from '../taxonomy/self.js';
 import { registerCardanoTools } from './cardano.js';
 import { registerIndigoTools } from './indigo.js';
-import { registerSwapTools } from './swap.js';
+import { registerSwapRouter } from './swap-router.js';
 import { registerTaxonomyTools } from './taxonomy.js';
 
 /**
@@ -19,7 +19,7 @@ export function registerTools(
   const gatewayOn = options.gateway ?? process.env.GATEWAY !== 'off';
   const gateway = gatewayOn ? registerGatewayTools(server) : undefined;
   registerTaxonomyTools(server, here, gateway?.calls);
-  registerSwapTools(server);
+  registerSwapRouter(server, gateway);
   registerCardanoTools(server);
   registerIndigoTools(server);
 }

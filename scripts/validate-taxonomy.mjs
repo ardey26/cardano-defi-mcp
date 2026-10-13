@@ -23,7 +23,8 @@ const VENUE_FIELDS = ["id", "name", "category", "url", "description", "assets", 
 const MCP_FIELDS = ["id", "name", "publisher", "official", "repo", "connect", "auth", "tools", "notes"];
 // This repo's own servers: never run by the gateway, and installed from the repo itself.
 const OWN_MCPS = ["cardano-defi-mcp", "cardano-defi-mcp-wallet"];
-const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "env", "notes"];
+const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "env", "implements", "notes"];
+const INTERFACES = ["cross_chain.get_quote", "cross_chain.build_swap_tx"];
 const EXACT_VERSION = /^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*@\d+\.\d+\.\d+(?:-[\w.]+)?$/;
 
 /**
@@ -240,6 +241,9 @@ function checkTool(where, tool, seenNames) {
         if (!venueIds.has(v)) fail(where, `venue ${JSON.stringify(v)} is not a file in venues/`);
       }
     }
+  }
+  if (tool.implements !== undefined && !INTERFACES.includes(tool.implements)) {
+    fail(where, `"implements" must be one of ${INTERFACES.join(", ")} (got ${JSON.stringify(tool.implements)})`);
   }
   if (tool.env !== undefined && (!Array.isArray(tool.env) || tool.env.length === 0 || !tool.env.every((e) => /^[A-Z][A-Z0-9_]*$/.test(e)))) {
     fail(where, '"env" must be a non-empty array of UPPER_SNAKE variable names');

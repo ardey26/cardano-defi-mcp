@@ -6,7 +6,7 @@
  * directory, so nothing writable may live there — its config, keys and spend
  * ledger go to `~/.cardano-defi-mcp/` instead:
  *
- *   config.json        blockfrostProjectId, bazaarApiUrl (no secrets beyond the key)
+ *   config.json        blockfrostProjectId, indigoSystemParamsUrl (no secrets beyond the key)
  *   credentials.env    WALLET_*_PRIVATE_KEY lines, chmod 600
  *   wallet-state.json  the rolling 24h spend ledger
  *
@@ -27,8 +27,6 @@ import { fileURLToPath } from 'node:url';
 /** The installed package root: src/wallet/ and dist-wallet/wallet/ are both one level below it. */
 export const PACKAGE_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-/** The hosted BazaarSwap routing backend. Localhost is only right inside the monorepo. */
-export const DEFAULT_BAZAAR_API_URL = 'https://bazaar-web.onrender.com';
 
 /** Same value render.yaml pins for the hosted server; Indigo publishes no stable URL. */
 export const DEFAULT_INDIGO_SYSTEM_PARAMS_URL =
@@ -36,7 +34,6 @@ export const DEFAULT_INDIGO_SYSTEM_PARAMS_URL =
 
 export interface HomeConfig {
   blockfrostProjectId?: string;
-  bazaarApiUrl?: string;
   indigoSystemParamsUrl?: string;
 }
 
@@ -146,7 +143,6 @@ function setIfUnset(env: NodeJS.ProcessEnv, key: string, value: string | undefin
 export function applyCliDefaults(env: NodeJS.ProcessEnv = process.env): void {
   const config = readConfig(env);
   setIfUnset(env, 'BLOCKFROST_PROJECT_ID', config.blockfrostProjectId);
-  setIfUnset(env, 'BAZAAR_API_URL', config.bazaarApiUrl ?? DEFAULT_BAZAAR_API_URL);
   setIfUnset(env, 'INDIGO_SYSTEM_PARAMS_URL', config.indigoSystemParamsUrl ?? DEFAULT_INDIGO_SYSTEM_PARAMS_URL);
 }
 

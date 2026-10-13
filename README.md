@@ -10,8 +10,15 @@ Open-source proof of concept for the **Cardano PRIME** grant. Two things in one 
    swap quotes into ADA, read balances and positions, and receive **unsigned** transactions the agent
    signs with its own keys.
 
-The **BazaarSwap routing backend is a separate, closed-source service**. This repo is only an HTTP
-client of it (`BAZAAR_API_URL`); nothing in here does routing, and nothing in here is a wallet.
+**Cross-chain swaps have no provider code in this repo.** `get_quote` and `build_swap_tx` are
+neutral routers. They race every cross-chain provider the taxonomy lists, each one a protocol MCP
+run through the gateway, and build with whichever provider quoted.
+
+Today the only provider is `bazaarswap-mcp`. BazaarSwap is the maintainer's own protocol: its
+routing backend is closed source, and its MCP client is
+[open](https://github.com/Fortress-Enterprises/bazaarswap-mcp). It was listed by the same reviewed
+PR as any other protocol and gets no ranking advantage. A competitor listed tomorrow joins the race
+with no code change here.
 
 ## Quickstart — one command
 
@@ -52,7 +59,8 @@ back as an error naming the exact next tool call:
    the running server, echoed back masked.
 6. **`wallet_status`** → addresses, live balances, caps, remaining 24 h headroom. You are done.
 
-From there the agent can quote (`get_quote`), build (`build_swap_tx`, `open_cdp`) and execute
+From there the agent can build (`open_cdp`), quote cross-chain swaps (`get_quote` / `build_swap_tx`,
+which need `GATEWAY=on` here or the hosted server for their providers) and execute
 (`sign_and_submit_evm`, `send_cardano`, `sign_and_submit_cardano`) in one connection.
 
 ### Where your files live
@@ -62,7 +70,7 @@ there. Config, keys and the spend ledger live in your home directory instead:
 
 | Path | Holds | Mode |
 | --- | --- | --- |
-| `~/.cardano-defi-mcp/config.json` | `blockfrostProjectId`, `bazaarApiUrl` | `600` |
+| `~/.cardano-defi-mcp/config.json` | `blockfrostProjectId` | `600` |
 | `~/.cardano-defi-mcp/credentials.env` | the `WALLET_*_PRIVATE_KEY` lines | `600` |
 | `~/.cardano-defi-mcp/wallet-state.json` | the rolling 24 h spend ledger | `600` |
 
@@ -89,7 +97,6 @@ signs must never be reachable over the network, and the combined mode is not a l
 | Variable | Required for | Default |
 | --- | --- | --- |
 | `BLOCKFROST_PROJECT_ID` | `get_balance`, `send_cardano`, `open_cdp`, `close_cdp` | `config.json`, else a clear error |
-| `BAZAAR_API_URL` | `get_quote`, `build_swap_tx` | `https://bazaar-web.onrender.com` via the CLI; `http://localhost:3001` in-process |
 | `LIQWID_GRAPHQL_URL` | `get_market_data`, Liqwid `get_position` | `https://v2.api.liqwid.finance/graphql` |
 | `CARDANO_NETWORK` | Blockfrost / Indigo host selection | `mainnet` (`mainnet` \| `preprod`) |
 | `INDIGO_API_URL` | Indigo `get_position` | `https://analytics.indigoprotocol.io` |
@@ -169,8 +176,8 @@ also register the **gateway** tools: third-party protocol tools named `<mcp>__<t
 | `list_capabilities` | The capability tree with venue and MCP-tool counts per node | read-only |
 | `find_capability` | Venues offering a capability, MCP tool paths ranked best first (`here` = callable on this server), and gaps | read-only |
 | `get_mcp` | One MCP server record, including the `connect` config to hand the user | read-only |
-| `get_quote` | Race the BazaarSwap backend for cross-chain routes; returns `best` + `all` by net output | read-only |
-| `build_swap_tx` | Turn a `quoteId` into transaction data | **unsigned** |
+| `get_quote` | Race every listed cross-chain provider (through the gateway); returns `best` + `all` by net output, each quote naming its provider | read-only |
+| `build_swap_tx` | Turn a `quoteId` into transaction data, built by the provider that quoted | **unsigned** |
 | `get_balance` | ADA + native-asset balance of a Cardano address (Blockfrost) | read-only |
 | `get_position` | Indigo CDPs or Liqwid loans for an address (`protocol: indigo \| liqwid`) | read-only |
 | `get_market_data` | Liqwid supply APY / borrow APR / utilization per market | read-only |
@@ -182,7 +189,7 @@ also register the **gateway** tools: third-party protocol tools named `<mcp>__<t
 | `sign_and_submit_cardano` | Sign the unsigned CBOR from `open_cdp` / `close_cdp` and submit it | **spends** |
 | `send_cardano` | Plain ADA payment — the execution leg of a Cardano-side deposit-address bridge | **spends** |
 | `setup_wallet` | Create the missing burner keys; returns addresses, caps and funding instructions | read-only |
-| `configure` | Store `blockfrostProjectId` / `bazaarApiUrl`; echoes secrets masked | read-only |
+| `configure` | Store `blockfrostProjectId`; echoes secrets masked | read-only |
 
 All tools return `{ content: [{ type: 'text', text: <pretty JSON> }] }`; failures return
 `isError: true` with a one-line message and no stack trace. A failure caused by missing setup names
@@ -279,7 +286,7 @@ runs and what `serve-http` starts. The wallet's model is [further down](#agent-w
 - **RealFi is not on mainnet yet** (testnet at time of research; mainnet stated for late 2026), and
   its token tickers are unresolved between the live site (`USDrf`/`sUSDrf`) and press coverage
   (`USDr`/`sUSDr`). It is indexed for completeness, not because it is usable today.
-- **Quotes are live and perishable.** `get_quote` can take up to ~25 s (it waits out a provider
+- **Quotes are live and perishable.** `get_quote` can take up to ~35 s (it waits out each provider's
   race) and quotes expire; build shortly after quoting.
 
 ## Layout
@@ -290,8 +297,9 @@ taxonomy/capabilities.json  the capability tree (two-level ids)
 taxonomy/venues/*.json      one file per venue, validated by VenueSchema
 taxonomy/mcps/*.json        one file per MCP server, tools classified by capability + effect
 src/taxonomy/               zod schemas, loaders, find_capability logic, this repo's own MCP ids
-src/adapters/               blockfrost, liqwid, indigo, swap (BazaarSwap API client)
-src/tools/                  MCP tool registrations (thin: parse -> adapter -> JSON text)
+src/adapters/               blockfrost, liqwid, indigo
+src/tools/                  MCP tool registrations (thin: parse -> adapter -> JSON text); swap-router.ts routes get_quote / build_swap_tx to listed providers
+src/gateway/                runs listed protocol MCPs: eligibility, lockfile install, upstream processes, tool registration
 src/server.ts               McpServer wiring + transport selection (stdio | http)
 src/http.ts                 Streamable HTTP host: routing, CORS, /health, rate limiting
 src/rate-limit.ts           in-memory sliding-window per-IP limiter
@@ -394,42 +402,14 @@ public APIs. No API keys needed; network access is.
 
 ## Execute a real swap (advanced)
 
-`examples/execute-swap.ts` is the other half of the story: the **agent-side signer**. The MCP server
-quotes and builds but never signs — something outside it has to close the loop, and this example
-shows what that something looks like. It moves real funds.
-
-> **Use a burner wallet.** Fund it with exactly the amount you intend to trade and nothing more.
-> This is example code for a proof of concept, not a production signer.
-
-```bash
-npm run execute -- gen      # new burner: appends PRIVATE_KEY to .env.local, prints only the address
-npm run execute -- quote    # dry run: warms the API token cache, races quotes (no key needed)
-npm run execute -- run      # quote → build → approve → summary, then STOPS
-npm run execute -- run --yes  # the same, but signs and broadcasts
-```
-
-Configure the pair with flags or env (`.env.local` wins over `.env`):
-`FROM_CHAIN` (1 or 42161), `FROM_TOKEN` (`native` or an ERC-20 address), `AMOUNT` (wei),
-`DEST_ADDRESS` (`addr1…`), plus optional `TO_CHAIN` / `TO_TOKEN` / `SLIPPAGE` / `RPC_URL`.
-
-- **`--yes` is the only way to broadcast.** Without it `run` prints the exact transaction — sender,
-  target, value, calldata size, estimated ADA out, destination address — and exits with
-  `DRY RUN — add --yes to broadcast`.
-- **ERC-20 sources get an exact-amount approval**, only when the current allowance is short, and the
-  script waits for that receipt before it signs the swap.
-- After broadcasting it registers the hash with the API (`POST /status/register`, sending both the
-  `quoteId` and the signed `tracking` token from the execute response) and polls
-  `GET /status/{txHash}` every 15 s for up to 10 minutes, printing each transition until
-  `complete` / `failed` / `untracked`. A failed swap exits non-zero.
-- **The private key never touches the keyless MCP server.** It is read by the example only, and the
-  server is spawned with `PRIVATE_KEY` stripped from its environment. `dist/server.js` still has no
-  signing code path; `viem` is a runtime dependency of the wallet and this example, and nothing in
-  `dist/` imports it.
+The agent-side swap signer example moved with the BazaarSwap client to
+[bazaarswap-mcp](https://github.com/Fortress-Enterprises/bazaarswap-mcp) (`examples/execute-swap.ts`).
+For a CDP, `examples/execute-cdp.ts` here signs and submits an `open_cdp` transaction end to end.
 
 ## Agent wallet (autonomous signing, local only)
 
-`examples/execute-swap.ts` and `examples/execute-cdp.ts` prove the loop closes, but a human still runs
-them. `src/wallet/` is the same signing logic repackaged as a **second MCP server** — `agent-wallet` —
+`examples/execute-cdp.ts` proves the loop closes, but a human still runs
+it. `src/wallet/` is the same signing logic repackaged as a **second MCP server** — `agent-wallet` —
 so an agent can close the loop itself: the main server builds, the wallet signs and submits.
 
 > **Everything in the wallet key is spendable by the agent, without asking you, up to the caps below.**
@@ -492,7 +472,7 @@ already exists — a key may hold funds, and replacing it would lose them.
 | `sign_and_submit_cardano` | Sign the unsigned CBOR from `open_cdp` / `close_cdp` and submit it via Blockfrost | **spends** |
 | `send_cardano` | Build, sign and submit a plain ADA payment to an address | **spends** |
 | `setup_wallet` | Create the missing burner keys; returns addresses, caps and funding instructions | read-only |
-| `configure` | Store `blockfrostProjectId` / `bazaarApiUrl` in `~/.cardano-defi-mcp/config.json` | read-only |
+| `configure` | Store `blockfrostProjectId` in `~/.cardano-defi-mcp/config.json` | read-only |
 
 Whichever key is present is served; the other chain's tools fail with a clear message instead of
 silently doing nothing. Keys are never printed or returned, and every error leaving the process is

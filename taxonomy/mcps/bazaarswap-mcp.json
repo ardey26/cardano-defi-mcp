@@ -23,7 +23,8 @@
         "bazaarswap"
       ],
       "effect": "read",
-      "notes": "Races the routing backend for up to ~35 s. For a swap into Cardano, recipientAddress (the Cardano address) is required or no route is found."
+      "notes": "Races the routing backend for up to ~35 s. For a swap into Cardano, recipientAddress (the Cardano address) is required or no route is found.",
+      "implements": "cross_chain.get_quote"
     },
     {
       "name": "build_swap_tx",
@@ -31,7 +32,8 @@
       "venues": [
         "bazaarswap"
       ],
-      "effect": "unsigned_tx"
+      "effect": "unsigned_tx",
+      "implements": "cross_chain.build_swap_tx"
     }
   ],
   "notes": "Disclosure: published by Fortress Enterprises, which also maintains this taxonomy; listed by reviewed PR like any other server. Keyless: the API serves anonymous callers at a lower rate limit, and BAZAAR_API_KEY only raises it, so no tool declares env. The backend sleeps when idle; an empty quote is usually a cold start — retry once after ~30 s."

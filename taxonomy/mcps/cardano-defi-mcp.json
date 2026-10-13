@@ -5,17 +5,63 @@
   "official": false,
   "repo": "https://github.com/ardey26/cardano-defi-mcp",
   "connect": [
-    { "transport": "http", "url": "https://cardano-defi-mcp.onrender.com/mcp" }
+    {
+      "transport": "http",
+      "url": "https://cardano-defi-mcp.onrender.com/mcp"
+    }
   ],
   "auth": "none",
   "tools": [
-    { "name": "get_quote", "capability": "trade.cross_chain_swap", "effect": "read" },
-    { "name": "build_swap_tx", "capability": "trade.cross_chain_swap", "effect": "unsigned_tx" },
-    { "name": "get_balance", "capability": "wallet.balance", "effect": "read" },
-    { "name": "get_position", "capability": "data.position", "venues": ["indigo", "liqwid"], "effect": "read" },
-    { "name": "get_market_data", "capability": "data.market", "venues": ["liqwid"], "effect": "read" },
-    { "name": "open_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "close_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" }
+    {
+      "name": "get_quote",
+      "capability": "trade.cross_chain_swap",
+      "effect": "read",
+      "notes": "Neutral router: races every taxonomy MCP tool that implements cross_chain.get_quote (today bazaarswap-mcp) through the gateway."
+    },
+    {
+      "name": "build_swap_tx",
+      "capability": "trade.cross_chain_swap",
+      "effect": "unsigned_tx",
+      "notes": "Neutral router: forwards to the provider named in the quoteId prefix."
+    },
+    {
+      "name": "get_balance",
+      "capability": "wallet.balance",
+      "effect": "read"
+    },
+    {
+      "name": "get_position",
+      "capability": "data.position",
+      "venues": [
+        "indigo",
+        "liqwid"
+      ],
+      "effect": "read"
+    },
+    {
+      "name": "get_market_data",
+      "capability": "data.market",
+      "venues": [
+        "liqwid"
+      ],
+      "effect": "read"
+    },
+    {
+      "name": "open_cdp",
+      "capability": "mint.cdp",
+      "venues": [
+        "indigo"
+      ],
+      "effect": "unsigned_tx"
+    },
+    {
+      "name": "close_cdp",
+      "capability": "mint.cdp",
+      "venues": [
+        "indigo"
+      ],
+      "effect": "unsigned_tx"
+    }
   ],
-  "notes": "Holds no keys: every fund-touching tool returns an unsigned transaction. The hosted instance sleeps when idle, so the first call can take ~30 s. `npx -y github:ardey26/cardano-defi-mcp` with no subcommand runs this server and cardano-defi-mcp-wallet together over stdio."
+  "notes": "Holds no keys: every fund-touching tool returns an unsigned transaction. get_quote and build_swap_tx contain no provider code: they route to the taxonomy's cross-chain providers through the gateway. The hosted instance sleeps when idle, so the first call can take ~30 s. `npx -y github:ardey26/cardano-defi-mcp` with no subcommand runs this server and cardano-defi-mcp-wallet together over stdio."
 }

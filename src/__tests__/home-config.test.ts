@@ -15,7 +15,6 @@ import {
   applyCliDefaults,
   applyEnvFile,
   configPath,
-  DEFAULT_BAZAAR_API_URL,
   homeCredentialsPath,
   homeStatePath,
   maskSecret,
@@ -53,18 +52,18 @@ describe('config.json', () => {
 
   it('merges writes and stores them 0600', () => {
     writeConfig({ blockfrostProjectId: 'mainnetABC' }, env);
-    writeConfig({ bazaarApiUrl: 'https://example.test' }, env);
+    writeConfig({ indigoSystemParamsUrl: 'https://example.test' }, env);
 
     expect(readConfig(env)).toEqual({
       blockfrostProjectId: 'mainnetABC',
-      bazaarApiUrl: 'https://example.test',
+      indigoSystemParamsUrl: 'https://example.test',
     });
     expect(statSync(configPath(env)).mode & 0o777).toBe(0o600);
   });
 
   it('ignores undefined fields rather than erasing what is stored', () => {
     writeConfig({ blockfrostProjectId: 'mainnetABC' }, env);
-    writeConfig({ blockfrostProjectId: undefined, bazaarApiUrl: 'https://example.test' }, env);
+    writeConfig({ blockfrostProjectId: undefined, indigoSystemParamsUrl: 'https://example.test' }, env);
 
     expect(readConfig(env).blockfrostProjectId).toBe('mainnetABC');
   });
@@ -79,30 +78,29 @@ describe('config.json', () => {
 
 describe('resolution order', () => {
   it('prefers an explicit environment variable over every file', () => {
-    writeConfig({ blockfrostProjectId: 'fromFile', bazaarApiUrl: 'https://file.test' }, env);
+    writeConfig({ blockfrostProjectId: 'fromFile', indigoSystemParamsUrl: 'https://file.test' }, env);
     env.BLOCKFROST_PROJECT_ID = 'fromEnv';
-    env.BAZAAR_API_URL = 'https://env.test';
+    env.INDIGO_SYSTEM_PARAMS_URL = 'https://env.test';
 
     applyCliDefaults(env);
 
     expect(env.BLOCKFROST_PROJECT_ID).toBe('fromEnv');
-    expect(env.BAZAAR_API_URL).toBe('https://env.test');
+    expect(env.INDIGO_SYSTEM_PARAMS_URL).toBe('https://env.test');
   });
 
   it('falls back to config.json when the environment is silent', () => {
-    writeConfig({ blockfrostProjectId: 'fromFile', bazaarApiUrl: 'https://file.test' }, env);
+    writeConfig({ blockfrostProjectId: 'fromFile', indigoSystemParamsUrl: 'https://file.test' }, env);
 
     applyCliDefaults(env);
 
     expect(env.BLOCKFROST_PROJECT_ID).toBe('fromFile');
-    expect(env.BAZAAR_API_URL).toBe('https://file.test');
+    expect(env.INDIGO_SYSTEM_PARAMS_URL).toBe('https://file.test');
   });
 
-  it('defaults the CLI to the hosted Bazaar API, never localhost', () => {
+  it('sets no BazaarSwap settings: BazaarSwap lives in bazaarswap-mcp now', () => {
     applyCliDefaults(env);
 
-    expect(env.BAZAAR_API_URL).toBe(DEFAULT_BAZAAR_API_URL);
-    expect(env.BAZAAR_API_URL).not.toMatch(/localhost/);
+    expect(env.BAZAAR_API_URL).toBeUndefined();
     expect(env.BLOCKFROST_PROJECT_ID).toBeUndefined();
     expect(env.INDIGO_SYSTEM_PARAMS_URL).toMatch(/^https:\/\/config\.indigoprotocol\.io\//);
   });

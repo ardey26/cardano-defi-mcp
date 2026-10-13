@@ -36,14 +36,6 @@ services:
       - key: BLOCKFROST_PROJECT_ID
         sync: false
 
-      # The BazaarSwap routing backend is a separate closed-source service with no
-      # public host yet, so there is no sensible default to bake in — set the base
-      # URL in the dashboard, or get_quote / build_swap_tx will fail.
-      - key: BAZAAR_API_KEY
-        sync: false
-      - key: BAZAAR_API_URL
-        sync: false
-
       # Public read-only endpoints below.
       - key: LIQWID_GRAPHQL_URL
         value: https://v2.api.liqwid.finance/graphql

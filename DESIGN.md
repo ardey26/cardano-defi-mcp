@@ -2,7 +2,7 @@
 
 Open-source proof of concept for the Cardano PRIME grant: a taxonomy index of Cardano
 DeFi venues plus an MCP server that lets AI agents discover Cardano DeFi, get cross-chain
-quotes into ADA via the BazaarSwap API, read positions, and receive **unsigned** Cardano
+quotes into ADA from the cross-chain providers the taxonomy lists, read positions, and receive **unsigned** Cardano
 transactions (Indigo CDPs) that the agent signs with its own keys. This server never
 holds funds and never signs anything.
 
@@ -19,8 +19,9 @@ src/taxonomy/self.ts        # this repo's MCP ids + meta tools
 src/adapters/blockfrost.ts  # getBalance(address)
 src/adapters/liqwid.ts      # getMarkets() / getPositions(address)  [read-only GraphQL]
 src/adapters/indigo.ts      # getPositions(address) / buildOpenCdp / buildCloseCdp  [indigo-sdk]
-src/adapters/swap.ts        # getQuote(params) / buildSwapTx(quoteId, userAddress)  [Bazaar API client]
 src/tools/*.ts              # MCP tool registrations (thin: parse args -> adapter -> JSON text content)
+src/tools/swap-router.ts    # get_quote / build_swap_tx: neutral routers over taxonomy tools that implement cross_chain.*
+src/gateway/*.ts            # runs listed protocol MCPs from committed lockfiles; registers their snapshot tools
 src/server.ts               # McpServer wiring + transport selection (stdio | http)
 src/http.ts                 # Streamable HTTP host: routing, CORS, /health, stateless per-request transport
 src/rate-limit.ts           # in-memory sliding-window per-IP limiter for the HTTP host
@@ -49,12 +50,10 @@ src/__tests__/              # vitest
 - `indigo.getPositions(address)`, `indigo.buildOpenCdp({ address, iasset, collateralLovelace, mintAmount })`
   and `indigo.buildCloseCdp(...)` -> `{ unsignedTxCbor, description, network }` (full tx CBOR hex,
   empty witness set — CIP-30 `signTx` compatible). Lucid Evolution + Blockfrost provider.
-- `swap.getQuote(params)` -> opens SSE `GET {BAZAAR_API_URL}/events/market?...`, collects quote
-  events until the race settles (or 25s), returns `{ best, all }` sorted by netOutput.
-  `swap.buildSwapTx(quoteId, userAddress)` -> `POST {BAZAAR_API_URL}/execute`.
-  Param names MUST match the Bazaar API contract — read
-  `/Users/andeus/work/bazaar-web/packages/shared/src/schemas.ts` (SwapParamsSchema,
-  ExecuteRequestSchema) and `/Users/andeus/work/bazaar-web/apps/api/openapi.yaml`.
+- `get_quote` / `build_swap_tx` hold no provider code. They call every taxonomy tool that declares
+  `implements: cross_chain.get_quote` / `cross_chain.build_swap_tx` and that the gateway serves (today
+  bazaarswap-mcp, whose client lives in its own repo). Quote ids are prefixed `<mcp id>:` so a build
+  returns to the provider that quoted.
 
 ### MCP tools (names fixed — the RFP names them)
 `list_venues`, `get_venue`, `get_quote`, `build_swap_tx`, `get_balance`,

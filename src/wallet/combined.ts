@@ -33,7 +33,7 @@ export function createCombinedServer(): McpServer {
     {
       instructions:
         'Cardano DeFi rails with a local signing wallet attached. Read tools browse a taxonomy of Cardano ' +
-        'venues, quote cross-chain swaps into ADA through the BazaarSwap routing backend, and read balances ' +
+        'venues and MCP tools and read balances ' +
         'and Indigo/Liqwid positions. Build tools return UNSIGNED transactions; the wallet tools in this same ' +
         'server sign and submit them from a local burner key, WITH NO HUMAN CONFIRMATION, bounded only by ' +
         'per-transaction and rolling-24h spending caps per chain family plus an EVM chain allowlist. ' +
@@ -47,9 +47,9 @@ export function createCombinedServer(): McpServer {
         'call that fixes it — usually configure with blockfrostProjectId (free at https://blockfrost.io). ' +
         "Conventions: amounts are in the token's smallest unit (USDC and ADA both use 6 decimals); " +
         'Cardano\'s chain id is the string "CARDANO" and native ADA is the zero address. ' +
-        'Reliability: the quote backend sleeps when idle — if get_quote returns zero routes, that is ' +
-        'usually a cold start, not a missing route; wait ~30 seconds and retry once before concluding ' +
-        'no route exists. Quotes expire in ~60 seconds and open_cdp transactions embed a price valid ' +
+        'Cross-chain swaps: get_quote / build_swap_tx route to the taxonomy\'s providers through the gateway, ' +
+        'so they need GATEWAY=on here or the hosted server; providers sleep when idle, so on zero routes wait ' +
+        '~30 seconds and retry once. Quotes expire in ~60 seconds and open_cdp transactions embed a price valid ' +
         '~280 seconds, so sign immediately after building. A swap that starts on Cardano executes as a ' +
         'plain payment to the quote\'s deposit address: use send_cardano for that leg.',
     },
