@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { addressOf, legacyAddressOf } from '../wallet/keys.js';
 import { makeKeyedApi } from '../wallet/keyed-wallet.js';
 import { isOwnAddress } from '../wallet/guard.js';
+import { precheckLovelace } from '../wallet/cardano.js';
 
 const key = CML.PrivateKey.generate_ed25519().to_bech32();
 const keyHash = CML.PrivateKey.from_bech32(key).to_public().hash().to_hex();
@@ -59,5 +60,26 @@ describe('keyed CIP-30 wallet on the Emulator', () => {
     expect((await emulator.getUtxos(recipient)).reduce((s, u) => s + u.assets.lovelace, 0n)).toBe(5_000_000n);
     expect(await emulator.getUtxos(legacy)).toEqual([]);
     expect((await emulator.getUtxos(base)).length).toBe(1);
+  });
+});
+
+describe('own-address boundary (review fixes)', () => {
+  const wallet = addressOf(key, 'Mainnet');
+
+  it('treats a pointer address with the wallet key as a stranger, since the wallet never queries it', () => {
+    // header 0x41 = pointer address, key payment, mainnet; then the key hash and pointer (slot 1, tx 2, cert 3)
+    const pointer = CML.Address.from_hex(`41${keyHash}010203`);
+    expect(isOwnAddress(pointer, wallet)).toBe(false);
+  });
+
+  it('treats the wallet key on the other network as a stranger', () => {
+    expect(isOwnAddress(CML.Address.from_bech32(legacyAddressOf(key, 'Preprod')), wallet)).toBe(false);
+    expect(isOwnAddress(CML.Address.from_bech32(addressOf(key, 'Preprod')), wallet)).toBe(false);
+  });
+
+  it('prechecks a self-transfer at zero, so legacy funds can be moved to the base address under the cap', () => {
+    expect(precheckLovelace(legacyAddressOf(key, 'Mainnet'), 500_000_000n, wallet)).toBe(0n);
+    expect(precheckLovelace(wallet, 500_000_000n, wallet)).toBe(0n);
+    expect(precheckLovelace(legacyAddressOf(CML.PrivateKey.generate_ed25519().to_bech32(), 'Mainnet'), 7n, wallet)).toBe(7n);
   });
 });

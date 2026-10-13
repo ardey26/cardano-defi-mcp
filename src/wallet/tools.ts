@@ -16,6 +16,7 @@ import { getBalance } from '../adapters/blockfrost.js';
 import { loadVenues } from '../taxonomy/index.js';
 import {
   blockfrostResolver,
+  precheckLovelace,
   cardanoOutflowLovelace,
   explorerTxUrl as cardanoExplorerTxUrl,
   mkSigner,
@@ -130,7 +131,9 @@ export function registerWalletTools(server: McpServer): void {
               balance: formatAmount('cardano', BigInt(balance.lovelace)),
               assets: balance.assets,
               ...(legacyLovelace > 0n
-                ? { legacyAddress, legacyBalance: formatAmount('cardano', legacyLovelace), legacyNote: 'spent automatically; change returns to address' }
+                ? { legacyAddress, legacyBalance: formatAmount('cardano', legacyLovelace), legacyNote:
+                    'send_cardano spends it, but swap and CDP builders only see address: move it there with ' +
+                    'send_cardano (to = address; only the fee counts against the caps)' }
                 : {}),
             };
           } catch (err) {
@@ -386,7 +389,7 @@ export function registerWalletTools(server: McpServer): void {
         const amount = BigInt(lovelace);
         // Checked before building so an over-cap request costs no Blockfrost
         // round trip; checked again below on the real outflow, which adds the fee.
-        assertSpendAllowed(policy, readLedger(), 'cardano', amount, Date.now());
+        assertSpendAllowed(policy, readLedger(), 'cardano', precheckLovelace(to, amount, cardanoAddress()), Date.now());
 
         const { lucid, address } = await mkSigner();
         const built = await lucid.newTx().pay.ToAddress(to, { lovelace: amount }).complete();

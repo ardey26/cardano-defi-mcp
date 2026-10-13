@@ -1,8 +1,8 @@
 /**
  * Cardano signing for the wallet server, and the ADA figure the policy checks.
  *
- * Signing is exactly what examples/execute-cdp.ts proved on mainnet:
- * `selectWallet.fromPrivateKey` + `fromTx(cbor).sign.withWallet().complete().submit()`.
+ * Signing goes through a keyed CIP-30 wallet (keyed-wallet.ts) on the key's base address,
+ * then `fromTx(cbor).sign.withWallet().complete().submit()`.
  * Nothing rebuilds the body, so a pinned Pyth price and validity range survive.
  */
 
@@ -27,7 +27,7 @@ export interface Outflow {
   /** what the policy checks: everything that does not come back to the wallet, plus the fee */
   lovelace: bigint;
   fee: bigint;
-  /** lovelace in outputs that pay back to this wallet's exact address (payment and stake part) */
+  /** lovelace in outputs that pay back to this wallet's own or legacy address (see isOwnAddress) */
   returnedToWallet: bigint;
   outputs: number;
   conservative: true;
@@ -72,8 +72,8 @@ export function cardanoOutflowLovelace(unsignedTxCbor: string, walletAddress: st
   for (let i = 0; i < outputs.len(); i++) {
     const output = outputs.get(i);
     const coin = output.amount().coin();
-    // Only the wallet's exact address counts as returned: its payment key under a
-    // foreign stake key is value that leaves the wallet's view.
+    // Only the wallet's own or legacy address counts as returned (isOwnAddress):
+    // its key under a foreign stake part or a pointer leaves the wallet's view.
     if (isOwnAddress(output.address(), walletAddress)) returned += coin;
     else leaving += coin;
   }
@@ -102,4 +102,13 @@ export function blockfrostResolver(lucid: Pick<LucidEvolution, 'utxosByOutRef'>)
     );
     return new Map(utxos.map((u) => [`${u.txHash}#${u.outputIndex}`, u.address]));
   };
+}
+
+/**
+ * The amount send_cardano checks against the caps before building. A transfer to the
+ * wallet's own or legacy address moves nothing out (only the fee, checked after
+ * building), so moving legacy funds to the base address is not capped by its size.
+ */
+export function precheckLovelace(to: string, amount: bigint, walletAddress: string): bigint {
+  return isOwnAddress(CML.Address.from_bech32(to), walletAddress) ? 0n : amount;
 }

@@ -531,9 +531,10 @@ The Cardano key signs for a **base address**, where the payment and stake creden
 DEX aggregators such as Fetch refuse an address without a stake part, so an enterprise address could
 not take a swap.
 
-Earlier versions used the key's enterprise address (`addr1v…`). Funds left there stay spendable: the
-wallet selects UTxOs from both addresses and sends change to the base address. `wallet_status` shows
-any balance left at the old address.
+Earlier versions used the key's enterprise address (`addr1v…`). Funds left there are still yours, and
+`wallet_status` shows them. `send_cardano` can spend them, but swap and CDP builders only see the base
+address. To move them, run `send_cardano` to the wallet's own address; only the fee counts against the
+caps.
 
 ### Signer guard
 

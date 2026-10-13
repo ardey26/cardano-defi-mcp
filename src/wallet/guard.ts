@@ -77,18 +77,18 @@ function refsOf(list: CML.TransactionInputList | undefined): string[] {
 }
 
 /**
- * The wallet's own address: its payment key, with either its own stake part or
- * none (the legacy enterprise form, which the wallet still spends from). Change
- * sent to the wallet's payment key under someone else's stake key would leave
- * the wallet's view and hand that key the staking rewards, so it is a stranger.
+ * Exactly the two addresses the wallet queries and spends from: its own address,
+ * and the enterprise form of its payment key (the legacy address). Anything else
+ * holding the wallet's key — a foreign stake part, a pointer address, the other
+ * network — is out of the wallet's view, so funds sent there count as a stranger's.
  */
 export function isOwnAddress(address: CML.Address, walletAddress: string): boolean {
   const wallet = CML.Address.from_bech32(walletAddress);
-  const payment = address.payment_cred();
-  if (payment?.kind() !== CML.CredentialKind.PubKey) return false;
-  if (payment.to_cbor_hex() !== wallet.payment_cred()?.to_cbor_hex()) return false;
-  const stake = address.staking_cred()?.to_cbor_hex();
-  return stake === undefined || stake === wallet.staking_cred()?.to_cbor_hex();
+  const payment = wallet.payment_cred();
+  if (!payment) return false;
+  const legacy = CML.EnterpriseAddress.new(wallet.network_id(), payment).to_address().to_hex();
+  const candidate = address.to_hex();
+  return candidate === wallet.to_hex() || candidate === legacy;
 }
 
 /**
