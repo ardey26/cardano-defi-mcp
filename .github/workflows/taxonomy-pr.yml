@@ -58,6 +58,8 @@ jobs:
           src/__tests__/find.test.ts
           src/__tests__/validate-taxonomy.test.ts
           src/__tests__/guard.test.ts
+          src/__tests__/gateway-eligibility.test.ts
+          src/__tests__/snapshots.test.ts
 
       # Step summary rather than a PR comment: the token on a fork PR is
       # read-only, so the comment API would fail for outside contributors.
@@ -116,6 +118,25 @@ jobs:
                       : "";
                     console.log(`| ${file} | ${change === "A" ? "added" : "modified"} | ${m.name ?? "?"} | ${m.publisher ?? "?"} | ${m.official ?? "?"} | ${tools} |`);
                   ' "$path" "$change"
+                done
+            echo
+            echo "## Tools agents will see through the gateway"
+            echo
+            echo "Exactly this text reaches agents. Read it for instructions aimed at the agent rather than the user."
+            echo
+            echo "| Snapshot | Tool | Description |"
+            echo "| --- | --- | --- |"
+            git diff --name-only --diff-filter=AM "$BASE_SHA" HEAD -- taxonomy/snapshots \
+              | while read -r path; do
+                  node -e '
+                    const fs = require("node:fs");
+                    const file = process.argv[1];
+                    let s = {};
+                    try { s = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+                    for (const t of Array.isArray(s.tools) ? s.tools : []) {
+                      console.log(`| ${file} | ${t.name} | ${String(t.description).replace(/[|\n]/g, " ")} |`);
+                    }
+                  ' "$path"
                 done
             if ! git diff --quiet "$BASE_SHA" HEAD -- taxonomy/capabilities.json; then
               echo

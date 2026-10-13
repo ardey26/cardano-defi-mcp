@@ -10,7 +10,9 @@ services:
     plan: free
     # --include=dev because Render sets NODE_ENV=production, under which a plain
     # `npm ci` omits devDependencies — and typescript is one, so the build needs it.
-    buildCommand: npm ci --include=dev && npm run build
+    # gateway:prefetch warms the npm cache for the pinned third-party MCP servers the
+    # gateway runs, so the first agent call does not wait on npx. It never fails the build.
+    buildCommand: npm ci --include=dev && npm run build && npm run gateway:prefetch
     startCommand: npm start
     healthCheckPath: /health
     envVars:
@@ -18,6 +20,10 @@ services:
         value: "20"
 
       # Render always sets PORT, which alone would select HTTP mode; say it out loud anyway.
+      # Inside the project dir so the build-time prefetch survives into the runtime.
+      - key: GATEWAY_CACHE_DIR
+        value: /opt/render/project/src/.gateway-cache
+
       - key: MCP_TRANSPORT
         value: http
 

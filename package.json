@@ -28,6 +28,7 @@
     "start": "node dist/server.js",
     "build:explorer": "node scripts/build-explorer.mjs",
     "validate:taxonomy": "node scripts/validate-taxonomy.mjs",
+    "gateway:prefetch": "node scripts/gateway-prefetch.mjs",
     "demo": "npx tsx examples/reference-agent.ts",
     "execute": "npx tsx examples/execute-swap.ts",
     "execute:cdp": "npx tsx examples/execute-cdp.ts",

@@ -49,7 +49,10 @@ jobs:
             if (bad.length === 0) process.exit(0);
             const lines = bad.map((r) => r.error
               ? `- **${r.id}**: could not list tools (${r.error})`
-              : `- **${r.id}**: declared but missing: ${r.missing.join(", ")}`);
+              : `- **${r.id}**: ` + [
+                  r.missing.length ? `declared but missing: ${r.missing.join(", ")}` : "",
+                  (r.changed ?? []).length ? `changed since the reviewed snapshot (re-run --snapshot and review the diff): ${r.changed.map((c) => c.tool + "." + c.field).join(", ")}` : "",
+                ].filter(Boolean).join("; "));
             fs.writeFileSync("body.md",
               "The weekly tools/list check found taxonomy/mcps/ entries that no longer match their servers. " +
               "Fix the entry or remove it.\n\n" + lines.join("\n") + "\n");

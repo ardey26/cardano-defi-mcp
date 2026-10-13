@@ -143,18 +143,33 @@ async function check(out) {
     // Prefer HTTP: it runs nothing locally.
     const connect = mcp.connect.find((c) => c.transport === "http") ?? mcp.connect[0];
     try {
-      const live = new Set(await listTools(connect));
+      const env = connect.transport === "stdio" ? await cleanEnv() : undefined;
+      const liveList = await withClient(connect, liveTools, env);
+      const live = new Set(liveList.map((t) => t.name));
       const declared = mcp.tools.map((t) => t.name);
       const missing = declared.filter((n) => !live.has(n));
       const undeclared = [...live].filter((n) => !declared.includes(n));
-      report.push({ id: mcp.id, ok: missing.length === 0, missing, undeclared });
+      // What agents see through the gateway must still be what reviewers approved.
+      const changed = [];
+      const snap = await readFile(join(SNAPSHOT_DIR, `${mcp.id}.json`), "utf8").then(JSON.parse, () => undefined);
+      for (const t of snap?.tools ?? []) {
+        const now = liveList.find((l) => l.name === t.name);
+        if (!now) continue;
+        if ((now.description ?? "") !== t.description) changed.push({ tool: t.name, field: "description" });
+        if (JSON.stringify(deref(now.inputSchema)) !== JSON.stringify(t.inputSchema)) changed.push({ tool: t.name, field: "inputSchema" });
+      }
+      report.push({ id: mcp.id, ok: missing.length === 0 && changed.length === 0, missing, undeclared, changed });
     } catch (err) {
       report.push({ id: mcp.id, ok: false, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
   for (const r of report) {
-    const detail = r.error ?? (r.missing.length ? `missing: ${r.missing.join(", ")}` : "ok");
+    const problems = [
+      r.missing?.length ? `missing: ${r.missing.join(", ")}` : "",
+      r.changed?.length ? `changed since snapshot: ${r.changed.map((c) => `${c.tool}.${c.field}`).join(", ")}` : "",
+    ].filter(Boolean);
+    const detail = r.error ?? (problems.join("; ") || "ok");
     console.log(`${r.ok ? "ok  " : "FAIL"} ${r.id} — ${detail}`);
   }
   if (out) await writeFile(out, JSON.stringify(report, null, 2));
