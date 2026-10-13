@@ -139,3 +139,15 @@ describe('listCapabilities', () => {
     expect(byId['wallet.balance']).toMatchObject({ venues: 0, tools: 2 });
   });
 });
+
+describe('findCapability against the published taxonomy', () => {
+  it('routes every swap venue through an aggregator, so swap has no gaps', () => {
+    const result = findCapability({ capability: 'trade.swap' }, [SELF_MCP_ID]);
+    expect(result.gaps).toEqual([]);
+    const minswap = findCapability({ capability: 'trade.swap', venue: 'minswap' }, [SELF_MCP_ID]);
+    expect(minswap.paths.map((p) => `${p.mcp}/${p.tool}`)).toEqual([
+      'fetch-cardano/cardano_aggregate_quote',
+      'fetch-cardano/cardano_build_swap',
+    ]);
+  });
+});
