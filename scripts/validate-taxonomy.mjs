@@ -16,8 +16,10 @@ const TAXONOMY = process.env.TAXONOMY_DIR ?? join(ROOT, "taxonomy");
 const CATEGORIES = ["dex", "lending", "cdp", "stablecoin", "derivatives"];
 const EFFECTS = ["read", "unsigned_tx", "signs"];
 const AUTHS = ["none", "api_key", "oauth"];
+const SCRIPT_ROLES = ["spend", "mint", "stake"];
+const SCRIPT_HASH = /^[0-9a-f]{56}$/;
 const CAPABILITY_ID = /^[a-z][a-z_]*\.[a-z][a-z_]*$/;
-const VENUE_FIELDS = ["id", "name", "category", "url", "description", "assets", "capabilities", "notes"];
+const VENUE_FIELDS = ["id", "name", "category", "url", "description", "assets", "capabilities", "scripts", "notes"];
 const MCP_FIELDS = ["id", "name", "publisher", "official", "repo", "connect", "auth", "tools", "notes"];
 const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "notes"];
 
@@ -124,6 +126,24 @@ function checkCapability(where, value) {
 const venues = await readRecords("venues");
 if (venues.length === 0) fail("venues/", "no venue files found");
 const venueIds = new Set(venues.map(({ record }) => record.id));
+const scriptOwner = new Map();
+
+function checkScript(where, file, script) {
+  if (!isObject(script)) return fail(where, "must be an object");
+  checkFields(where, script, ["hash", "role", "label", "source"]);
+  if (typeof script.hash !== "string" || !SCRIPT_HASH.test(script.hash)) {
+    fail(where, '"hash" must be 56 lowercase hex characters');
+  } else {
+    const first = scriptOwner.get(script.hash);
+    if (first && first !== file) fail(where, `script ${script.hash} is already listed by ${first}`);
+    else scriptOwner.set(script.hash, file);
+  }
+  if (!SCRIPT_ROLES.includes(script.role)) {
+    fail(where, `"role" must be one of ${SCRIPT_ROLES.join(", ")} (got ${JSON.stringify(script.role)})`);
+  }
+  requireStrings(where, script, ["label"]);
+  if (!isUrl(script.source)) fail(where, '"source" must be a valid URL');
+}
 
 for (const { file, record: venue } of venues) {
   checkFields(file, venue, VENUE_FIELDS);
@@ -139,6 +159,13 @@ for (const { file, record: venue } of venues) {
     fail(file, '"capabilities" must be a non-empty array of capability ids');
   } else {
     for (const cap of venue.capabilities) checkCapability(file, cap);
+  }
+  if (venue.scripts !== undefined) {
+    if (!Array.isArray(venue.scripts) || venue.scripts.length === 0) {
+      fail(file, '"scripts", when present, must be a non-empty array');
+    } else {
+      for (const [i, script] of venue.scripts.entries()) checkScript(`${file} scripts[${i}]`, file, script);
+    }
   }
   checkNotes(file, venue);
 }
@@ -214,4 +241,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`${capabilityIds.size} capabilities, ${venues.length} venues, ${mcps.length} MCPs OK`);
+console.log(`${capabilityIds.size} capabilities, ${venues.length} venues (${scriptOwner.size} scripts), ${mcps.length} MCPs OK`);

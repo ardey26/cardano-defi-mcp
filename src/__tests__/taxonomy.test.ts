@@ -142,3 +142,30 @@ describe('venue validation', () => {
     expect(() => loadVenues(root)).toThrow(/venue file alpha\.json: .*'lend\.flash'.*capabilities\.json/);
   });
 });
+
+describe('venue scripts', () => {
+  const script = (hash: string, role = 'spend') => ({ hash, role, label: 'order', source: 'https://cexplorer.io/script/x' });
+  const A = 'a'.repeat(56);
+  const B = 'b'.repeat(56);
+
+  it('loads scripts on a venue', () => {
+    const root = writeTaxonomy({ venues: { alpha: venue('alpha', { scripts: [script(A), script(A, 'stake')] }) } });
+    expect(loadVenues(root)[0].scripts).toEqual([script(A), script(A, 'stake')]);
+  });
+
+  it.each([
+    ['uppercase hex', script('A'.repeat(56))],
+    ['short hash', script('a'.repeat(54))],
+    ['unknown role', script(A, 'withdraw')],
+  ])('rejects a script with %s', (_label, bad) => {
+    const root = writeTaxonomy({ venues: { alpha: venue('alpha', { scripts: [bad] }) } });
+    expect(() => loadVenues(root)).toThrow(/alpha\.json/);
+  });
+
+  it('rejects a hash claimed by two venues', () => {
+    const root = writeTaxonomy({
+      venues: { alpha: venue('alpha', { scripts: [script(A)] }), beta: venue('beta', { scripts: [script(B), script(A, 'mint')] }) },
+    });
+    expect(() => loadVenues(root)).toThrow(/beta\.json: script a{56} is already listed by venue 'alpha'/);
+  });
+});

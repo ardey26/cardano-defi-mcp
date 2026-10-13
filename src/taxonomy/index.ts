@@ -72,12 +72,22 @@ export function matchesCapability(id: string, query: string): boolean {
 
 export function loadVenues(root = TAXONOMY_ROOT): Venue[] {
   const known = new Set(loadCapabilities(root).map((c) => c.id));
+  const owner = new Map<string, string>();
   return readRecords(join(root, 'venues'), VenueSchema, 'venue').map(({ file, record }) => {
     const unknown = record.capabilities.filter((c) => !known.has(c));
     if (unknown.length > 0) {
       throw new Error(
         `Invalid venue file ${file}: ${unknown.map((c) => `'${c}'`).join(', ')} not in capabilities.json`,
       );
+    }
+    // A hash may appear under several roles in one venue (a V3 script can spend and stake),
+    // but never in two venues: the guard must name exactly one venue per contract.
+    for (const { hash } of record.scripts ?? []) {
+      const first = owner.get(hash);
+      if (first !== undefined && first !== record.id) {
+        throw new Error(`Invalid venue file ${file}: script ${hash} is already listed by venue '${first}'`);
+      }
+      owner.set(hash, record.id);
     }
     return record;
   });

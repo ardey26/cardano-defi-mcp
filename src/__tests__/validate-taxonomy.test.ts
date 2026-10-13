@@ -19,7 +19,7 @@ describe('validate-taxonomy.mjs', () => {
     const r = validate();
     expect(r.stderr).toBe('');
     expect(r.status).toBe(0);
-    expect(r.stdout).toMatch(/capabilities, \d+ venues, \d+ MCPs OK/);
+    expect(r.stdout).toMatch(/capabilities, \d+ venues \(\d+ scripts\), \d+ MCPs OK/);
   });
 
   it('passes on a valid fixture', () => {
@@ -54,6 +54,23 @@ describe('validate-taxonomy.mjs', () => {
     const r = validate(writeTaxonomy({ venues: { alpha: venue('alpha') }, mcps: { m: mcp('m', { tools: tools('yes') }) } }));
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/mcps\/m\.json tools\[0\]: "official", when present, must be true or false/);
+  });
+
+  it('checks venue scripts: shape, role, and one venue per hash', () => {
+    const s = (hash: string, role = 'spend') => ({ hash, role, label: 'order', source: 'https://cexplorer.io/script/x' });
+    const ok = validate(writeTaxonomy({ venues: { alpha: venue('alpha', { scripts: [s('a'.repeat(56))] }) } }));
+    expect(ok.status).toBe(0);
+    const r = validate(writeTaxonomy({
+      venues: {
+        alpha: venue('alpha', { scripts: [s('A'.repeat(56)), s('c'.repeat(56), 'withdraw')] }),
+        beta: venue('beta', { scripts: [s('a'.repeat(56))] }),
+        gamma: venue('gamma', { scripts: [s('a'.repeat(56), 'mint')] }),
+      },
+    }));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/venues\/alpha\.json scripts\[0\]: "hash" must be 56 lowercase hex characters/);
+    expect(r.stderr).toMatch(/venues\/alpha\.json scripts\[1\]: "role" must be one of spend, mint, stake/);
+    expect(r.stderr).toMatch(/venues\/gamma\.json scripts\[0\]: script a{56} is already listed by venues\/beta\.json/);
   });
 
   it('rejects a filename that does not match the id', () => {

@@ -19,6 +19,18 @@ export const CapabilityNodeSchema = z.strictObject({
   description: z.string().min(1),
 });
 
+// What a script does in a transaction: lock outputs (spend), mint or burn
+// tokens (mint), or authorise withdrawals and certificates (stake).
+export const ScriptRoleSchema = z.enum(['spend', 'mint', 'stake']);
+
+export const VenueScriptSchema = z.strictObject({
+  hash: z.string().regex(/^[0-9a-f]{56}$/, 'must be 56 lowercase hex characters'),
+  role: ScriptRoleSchema,
+  label: z.string().min(1),
+  // Where a reviewer can check the hash: an explorer page, the venue's docs or repo.
+  source: z.string().url(),
+});
+
 export const VenueSchema = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -27,6 +39,8 @@ export const VenueSchema = z.strictObject({
   description: z.string().min(1),
   assets: z.array(z.string().min(1)),
   capabilities: z.array(CapabilityIdSchema).min(1),
+  // The contracts the signer guard lets a transaction touch at this venue.
+  scripts: z.array(VenueScriptSchema).min(1).optional(),
   notes: z.string().min(1).optional(),
 });
 
@@ -75,6 +89,8 @@ export const McpSchema = z.strictObject({
 
 export type Category = z.infer<typeof CategorySchema>;
 export type Venue = z.infer<typeof VenueSchema>;
+export type ScriptRole = z.infer<typeof ScriptRoleSchema>;
+export type VenueScript = z.infer<typeof VenueScriptSchema>;
 export type CapabilityNode = z.infer<typeof CapabilityNodeSchema>;
 export type Effect = z.infer<typeof EffectSchema>;
 export type McpTool = z.infer<typeof McpToolSchema>;
