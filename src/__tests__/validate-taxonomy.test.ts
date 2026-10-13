@@ -73,6 +73,20 @@ describe('validate-taxonomy.mjs', () => {
     expect(r.stderr).toMatch(/venues\/gamma\.json scripts\[0\]: script a{56} is already listed by venues\/beta\.json/);
   });
 
+  it('rejects unpinned packages and malformed tool env', () => {
+    const r = validate(writeTaxonomy({
+      mcps: {
+        m: mcp('m', {
+          connect: [{ transport: 'stdio', command: 'npx', args: ['-y', 'm-mcp@^1.0.0'] }],
+          tools: [{ name: 't', capability: 'lend.borrow', effect: 'read', env: ['lowercase'] }],
+        }),
+      },
+    }));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/mcps\/m\.json connect\[0\]: package "m-mcp@\^1\.0\.0" must name an exact version/);
+    expect(r.stderr).toMatch(/mcps\/m\.json tools\[0\]: "env" must be a non-empty array of UPPER_SNAKE variable names/);
+  });
+
   it('rejects a filename that does not match the id', () => {
     const r = validate(writeTaxonomy({ venues: { alpha: venue('beta') } }));
     expect(r.status).toBe(1);

@@ -5,7 +5,7 @@
   "official": false,
   "repo": "https://github.com/ADA-Markets/fetch-cardano-mcp",
   "connect": [
-    { "transport": "stdio", "command": "npx", "args": ["-y", "@fetchswap/cardano-mcp"] }
+    { "transport": "stdio", "command": "npx", "args": ["-y", "@fetchswap/cardano-mcp@0.1.0"] }
   ],
   "auth": "none",
   "tools": [

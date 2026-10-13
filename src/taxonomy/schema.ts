@@ -71,6 +71,8 @@ export const McpToolSchema = z.strictObject({
   effect: EffectSchema,
   // Overrides the server's flag, e.g. an official server's tool that quotes a third-party venue.
   official: z.boolean().optional(),
+  // Environment variables the tool needs to work. The gateway passes none, so these tools are not exposed.
+  env: z.array(z.string().regex(/^[A-Z][A-Z0-9_]*$/)).min(1).optional(),
   notes: z.string().min(1).optional(),
 });
 

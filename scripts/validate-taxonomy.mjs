@@ -21,7 +21,21 @@ const SCRIPT_HASH = /^[0-9a-f]{56}$/;
 const CAPABILITY_ID = /^[a-z][a-z_]*\.[a-z][a-z_]*$/;
 const VENUE_FIELDS = ["id", "name", "category", "url", "description", "assets", "capabilities", "scripts", "notes"];
 const MCP_FIELDS = ["id", "name", "publisher", "official", "repo", "connect", "auth", "tools", "notes"];
-const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "notes"];
+// This repo's own servers: never run by the gateway, and installed from the repo itself.
+const OWN_MCPS = ["cardano-defi-mcp", "cardano-defi-mcp-wallet"];
+const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "env", "notes"];
+const EXACT_VERSION = /^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*@\d+\.\d+\.\d+(?:-[\w.]+)?$/;
+
+/** npx arguments that name packages: every `-p <spec>`, else the first positional. Mirrors src/gateway/eligibility.ts. */
+function packageSpecs(args) {
+  const specs = [];
+  let positional;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "-p" || args[i] === "--package") specs.push(args[++i] ?? "");
+    else if (!args[i].startsWith("-") && positional === undefined) positional = args[i];
+  }
+  return specs.length > 0 ? specs : positional !== undefined ? [positional] : [];
+}
 
 const errors = [];
 const fail = (where, message) => errors.push(`${where}: ${message}`);
@@ -172,13 +186,18 @@ for (const { file, record: venue } of venues) {
 
 // --- mcps/ -------------------------------------------------------------------
 
-function checkConnect(where, entry) {
+function checkConnect(where, entry, own) {
   if (!isObject(entry)) return fail(where, "must be an object");
   if (entry.transport === "stdio") {
     checkFields(where, entry, ["transport", "command", "args"]);
     if (!isNonEmptyString(entry.command)) fail(where, 'stdio needs a non-empty "command"');
     if (!Array.isArray(entry.args) || !entry.args.every((a) => typeof a === "string")) {
       fail(where, 'stdio needs "args" as an array of strings');
+    }
+    if (!own && entry.command === "npx" && Array.isArray(entry.args)) {
+      for (const spec of packageSpecs(entry.args)) {
+        if (!EXACT_VERSION.test(spec)) fail(where, `package ${JSON.stringify(spec)} must name an exact version, e.g. name@1.2.3`);
+      }
     }
   } else if (entry.transport === "http") {
     checkFields(where, entry, ["transport", "url"]);
@@ -207,6 +226,9 @@ function checkTool(where, tool, seenNames) {
       }
     }
   }
+  if (tool.env !== undefined && (!Array.isArray(tool.env) || tool.env.length === 0 || !tool.env.every((e) => /^[A-Z][A-Z0-9_]*$/.test(e)))) {
+    fail(where, '"env" must be a non-empty array of UPPER_SNAKE variable names');
+  }
   if (tool.official !== undefined && typeof tool.official !== "boolean") {
     fail(where, '"official", when present, must be true or false');
   }
@@ -223,7 +245,7 @@ for (const { file, record: mcp } of mcps) {
   if (!AUTHS.includes(mcp.auth)) fail(file, `"auth" must be one of ${AUTHS.join(", ")} (got ${JSON.stringify(mcp.auth)})`);
 
   if (!Array.isArray(mcp.connect) || mcp.connect.length === 0) fail(file, '"connect" must be a non-empty array');
-  else mcp.connect.forEach((entry, i) => checkConnect(`${file} connect[${i}]`, entry));
+  else mcp.connect.forEach((entry, i) => checkConnect(`${file} connect[${i}]`, entry, OWN_MCPS.includes(mcp.id)));
 
   if (!Array.isArray(mcp.tools) || mcp.tools.length === 0) {
     fail(file, '"tools" must be a non-empty array');

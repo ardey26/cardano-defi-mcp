@@ -5,25 +5,25 @@
   "official": true,
   "repo": "https://github.com/IndigoProtocol/indigo-mcp",
   "connect": [
-    { "transport": "stdio", "command": "npx", "args": ["-y", "-p", "undici", "-p", "@indigoprotocol/indigo-mcp", "indigo-mcp"] }
+    { "transport": "stdio", "command": "npx", "args": ["-y", "-p", "undici@7.30.0", "-p", "@indigoprotocol/indigo-mcp@0.4.2", "indigo-mcp"] }
   ],
   "auth": "none",
   "tools": [
-    { "name": "open_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "close_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "mint_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "burn_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "deposit_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "withdraw_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "merge_cdps", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "leverage_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "notes": "Opens a leveraged CDP by redeeming against order-book positions." },
-    { "name": "create_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "adjust_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "close_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "open_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "adjust_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "close_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
-    { "name": "create_stableswap_order", "capability": "trade.swap", "venues": ["indigo"], "effect": "unsigned_tx", "notes": "Swaps collateral for an iAsset or back through Indigo's stableswap pool." },
+    { "name": "open_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "close_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "mint_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "burn_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "deposit_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "withdraw_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "merge_cdps", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "leverage_cdp", "capability": "mint.cdp", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"], "notes": "Opens a leveraged CDP by redeeming against order-book positions." },
+    { "name": "create_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "adjust_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "close_sp_account", "capability": "earn.stability_pool", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "open_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "adjust_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "close_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"] },
+    { "name": "create_stableswap_order", "capability": "trade.swap", "venues": ["indigo"], "effect": "unsigned_tx", "env": ["BLOCKFROST_API_KEY"], "notes": "Swaps collateral for an iAsset or back through Indigo's stableswap pool." },
     { "name": "get_steelswap_estimate", "capability": "trade.swap", "effect": "read", "official": false, "notes": "Quote from the Steelswap aggregator, which Indigo does not operate; builds no transaction." },
     { "name": "get_cdps_by_owner", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
     { "name": "get_cdps_by_address", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
@@ -37,5 +37,5 @@
     { "name": "get_stability_pools", "capability": "data.market", "venues": ["indigo"], "effect": "read" },
     { "name": "get_blockfrost_balances", "capability": "wallet.balance", "effect": "read" }
   ],
-  "notes": "Verified by tools/list on 2026-10-13 against @indigoprotocol/indigo-mcp 0.4.2 (69 tools). The published package fails to start without its undici dependency, so the connect command installs it alongside. Listing tools needs no key; building transactions needs BLOCKFROST_API_KEY. Tools with no capability node are left out: admin and maintenance operations, keeper actions (liquidate, redeem, freeze), the redemption order book, governance, oracles and IPFS."
+  "notes": "Verified by tools/list on 2026-10-13 against @indigoprotocol/indigo-mcp 0.4.2 (69 tools). The published package fails to start without its undici dependency, so the connect command installs it alongside. Listing tools needs no key; building transactions needs BLOCKFROST_API_KEY. Tools with no capability node are left out: admin and maintenance operations, keeper actions (liquidate, redeem, freeze), the redemption order book, governance, oracles and IPFS. Write tools need BLOCKFROST_API_KEY (verified 2026-10-14: open_cdp refuses without it), so the gateway does not expose them; reads work keyless. Pinned undici@7.30.0 because undici 8 needs Node 22."
 }
