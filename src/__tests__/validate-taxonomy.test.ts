@@ -48,6 +48,14 @@ describe('validate-taxonomy.mjs', () => {
     expect(r.stderr).toMatch(/mcps\/m\.json tools\[0\]: venue "nope" is not a file in venues\//);
   });
 
+  it('accepts a per-tool official override and rejects a non-boolean one', () => {
+    const tools = (official: unknown) => [{ name: 't', capability: 'lend.borrow', effect: 'read', official }];
+    expect(validate(writeTaxonomy({ venues: { alpha: venue('alpha') }, mcps: { m: mcp('m', { tools: tools(false) }) } })).status).toBe(0);
+    const r = validate(writeTaxonomy({ venues: { alpha: venue('alpha') }, mcps: { m: mcp('m', { tools: tools('yes') }) } }));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/mcps\/m\.json tools\[0\]: "official", when present, must be true or false/);
+  });
+
   it('rejects a filename that does not match the id', () => {
     const r = validate(writeTaxonomy({ venues: { alpha: venue('beta') } }));
     expect(r.status).toBe(1);

@@ -166,14 +166,18 @@ tools as `here`; the combined npx server marks both entries.
   "capability": "mint.cdp",
   "venues": [{ "id": "indigo", "name": "Indigo", "assets": ["…"] }],
   "paths": [
-    { "venue": "indigo", "mcp": "cardano-defi-mcp", "tool": "open_cdp",
+    { "venues": ["indigo"], "mcp": "cardano-defi-mcp", "tool": "open_cdp",
       "effect": "unsigned_tx", "here": true },
-    { "venue": "indigo", "mcp": "indigo-mcp", "tool": "…",
+    { "venues": ["indigo"], "mcp": "indigo-mcp", "tool": "…",
       "effect": "…", "here": false, "official": true }
   ],
   "gaps": []                // venues offering the capability with no MCP path at all
 }
 ```
+
+One path per tool: `venues` lists every in-scope venue it acts on, and is empty for a
+venue-agnostic tool. A tool can set `official` to override its server's flag, for example an
+official server's tool that quotes a third-party aggregator.
 
 Ranking of `paths`: `here` first (callable now, no install), then lower effect
 (read < unsigned_tx < signs), then `official`. When `here` is false the agent should hand

@@ -24,7 +24,7 @@
     { "name": "adjust_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
     { "name": "close_staking_position", "capability": "earn.stake", "venues": ["indigo"], "effect": "unsigned_tx" },
     { "name": "create_stableswap_order", "capability": "trade.swap", "venues": ["indigo"], "effect": "unsigned_tx", "notes": "Swaps collateral for an iAsset or back through Indigo's stableswap pool." },
-    { "name": "get_steelswap_estimate", "capability": "trade.swap", "effect": "read", "notes": "Quote from the Steelswap aggregator; builds no transaction." },
+    { "name": "get_steelswap_estimate", "capability": "trade.swap", "effect": "read", "official": false, "notes": "Quote from the Steelswap aggregator, which Indigo does not operate; builds no transaction." },
     { "name": "get_cdps_by_owner", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
     { "name": "get_cdps_by_address", "capability": "data.position", "venues": ["indigo"], "effect": "read" },
     { "name": "analyze_cdp_health", "capability": "data.position", "venues": ["indigo"], "effect": "read" },

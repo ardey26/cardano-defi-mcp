@@ -19,7 +19,7 @@ const AUTHS = ["none", "api_key", "oauth"];
 const CAPABILITY_ID = /^[a-z][a-z_]*\.[a-z][a-z_]*$/;
 const VENUE_FIELDS = ["id", "name", "category", "url", "description", "assets", "capabilities", "notes"];
 const MCP_FIELDS = ["id", "name", "publisher", "official", "repo", "connect", "auth", "tools", "notes"];
-const TOOL_FIELDS = ["name", "capability", "venues", "effect", "notes"];
+const TOOL_FIELDS = ["name", "capability", "venues", "effect", "official", "notes"];
 
 const errors = [];
 const fail = (where, message) => errors.push(`${where}: ${message}`);
@@ -179,6 +179,9 @@ function checkTool(where, tool, seenNames) {
         if (!venueIds.has(v)) fail(where, `venue ${JSON.stringify(v)} is not a file in venues/`);
       }
     }
+  }
+  if (tool.official !== undefined && typeof tool.official !== "boolean") {
+    fail(where, '"official", when present, must be true or false');
   }
   checkNotes(where, tool);
 }

@@ -24,6 +24,8 @@ const root = writeTaxonomy({
       tools: [
         { name: 'borrow', capability: 'lend.borrow', venues: ['alpha', 'beta'], effect: 'unsigned_tx' },
         { name: 'rates', capability: 'lend.borrow', venues: ['alpha'], effect: 'read' },
+        // Published by an official server, but for a venue its publisher does not operate.
+        { name: 'third_party_quote', capability: 'trade.swap', effect: 'read', official: false },
       ],
     }),
     'ext-signer': mcp('ext-signer', {
@@ -33,7 +35,7 @@ const root = writeTaxonomy({
 });
 
 const HERE = ['here-mcp'];
-const brief = (r: ReturnType<typeof findCapability>) => r.paths.map((p) => `${p.mcp}/${p.tool}@${p.venue}`);
+const brief = (r: ReturnType<typeof findCapability>) => r.paths.map((p) => `${p.mcp}/${p.tool}@${p.venues.join(',')}`);
 
 describe('findCapability', () => {
   it('ranks here first, then lower effect, then official', () => {
@@ -42,8 +44,7 @@ describe('findCapability', () => {
     expect(brief(result)).toEqual([
       'here-mcp/borrow_alpha@alpha',
       'ext-official/rates@alpha',
-      'ext-official/borrow@alpha',
-      'ext-official/borrow@beta',
+      'ext-official/borrow@alpha,beta',
       'ext-signer/auto_borrow@beta',
     ]);
     expect(result.paths[0]).toMatchObject({ here: true, effect: 'unsigned_tx', official: false });
@@ -59,7 +60,7 @@ describe('findCapability', () => {
   it('filters venues and their paths by asset', () => {
     const result = findCapability({ capability: 'lend.borrow', asset: 'iusd' }, HERE, root);
     expect(result.venues.map((v) => v.id)).toEqual(['alpha']);
-    expect(result.paths.every((p) => p.venue === 'alpha')).toBe(true);
+    expect(brief(result)).toEqual(['here-mcp/borrow_alpha@alpha', 'ext-official/rates@alpha', 'ext-official/borrow@alpha']);
   });
 
   it('filters by venue', () => {
@@ -68,11 +69,11 @@ describe('findCapability', () => {
     expect(brief(result)).toEqual(['ext-official/borrow@beta', 'ext-signer/auto_borrow@beta']);
   });
 
-  it('returns venue-agnostic tools with a null venue', () => {
+  it('returns venue-agnostic tools with no venues', () => {
     const result = findCapability({ capability: 'wallet.balance' }, HERE, root);
     expect(result.venues).toEqual([]);
     expect(result.paths[0]).toEqual(
-      { capability: 'wallet.balance', venue: null, mcp: 'here-mcp', tool: 'balance', effect: 'read', official: false, here: true },
+      { capability: 'wallet.balance', venues: [], mcp: 'here-mcp', tool: 'balance', effect: 'read', official: false, here: true },
     );
   });
 
@@ -97,7 +98,7 @@ describe('findCapability', () => {
   it('works on the real taxonomy: Indigo CDPs are callable here', () => {
     const result = findCapability({ capability: 'mint.cdp' }, [SELF_MCP_ID]);
     expect(result.venues.map((v) => v.id)).toContain('indigo');
-    expect(result.paths[0]).toMatchObject({ mcp: SELF_MCP_ID, venue: 'indigo', here: true });
+    expect(result.paths[0]).toMatchObject({ mcp: SELF_MCP_ID, venues: ['indigo'], here: true });
   });
 });
 
@@ -131,6 +132,22 @@ describe('findCapability review fixes', () => {
   });
 });
 
+describe('findCapability paths', () => {
+  it('returns one path per tool, listing every venue it can act on', () => {
+    const result = findCapability({ capability: 'lend.borrow' }, HERE, root);
+    const borrow = result.paths.filter((p) => p.mcp === 'ext-official' && p.tool === 'borrow');
+    expect(borrow).toHaveLength(1);
+    expect(borrow[0].venues).toEqual(['alpha', 'beta']);
+  });
+
+  it('lets a tool override its server\'s official flag', () => {
+    const result = findCapability({ capability: 'trade.swap' }, HERE, root);
+    expect(result.paths.find((p) => p.tool === 'third_party_quote')).toMatchObject({ official: false });
+    expect(findCapability({ capability: 'lend.borrow' }, HERE, root).paths.find((p) => p.tool === 'rates'))
+      .toMatchObject({ official: true });
+  });
+});
+
 describe('listCapabilities', () => {
   it('counts venues and tools per node', () => {
     const byId = Object.fromEntries(listCapabilities(root).map((c) => [c.id, c]));
@@ -145,9 +162,15 @@ describe('findCapability against the published taxonomy', () => {
     const result = findCapability({ capability: 'trade.swap' }, [SELF_MCP_ID]);
     expect(result.gaps).toEqual([]);
     const minswap = findCapability({ capability: 'trade.swap', venue: 'minswap' }, [SELF_MCP_ID]);
-    expect(minswap.paths.map((p) => `${p.mcp}/${p.tool}`)).toEqual([
-      'fetch-cardano/cardano_aggregate_quote',
-      'fetch-cardano/cardano_build_swap',
+    expect(brief(minswap)).toEqual([
+      'fetch-cardano/cardano_aggregate_quote@minswap',
+      'fetch-cardano/cardano_build_swap@minswap',
     ]);
+  });
+
+  it('ranks an aggregator above a third-party quote that an official server happens to publish', () => {
+    const result = findCapability({ capability: 'trade.swap', asset: 'iUSD' }, [SELF_MCP_ID]);
+    expect(brief(result)[0]).toBe('fetch-cardano/cardano_aggregate_quote@minswap,sundaeswap,wingriders');
+    expect(result.paths.find((p) => p.tool === 'get_steelswap_estimate')).toMatchObject({ official: false });
   });
 });

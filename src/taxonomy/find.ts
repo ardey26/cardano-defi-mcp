@@ -22,8 +22,8 @@ export interface FindQuery {
 
 export interface AgentPath {
   capability: string;
-  /** null for a venue-agnostic tool (a wallet, or an aggregator that names no venues). */
-  venue: string | null;
+  /** The venues in scope this tool acts on; empty for a venue-agnostic tool (a wallet, or an aggregator that names no venues). */
+  venues: string[];
   mcp: string;
   tool: string;
   effect: Effect;
@@ -59,7 +59,7 @@ function comparePaths(a: AgentPath, b: AgentPath): number {
     Number(b.official) - Number(a.official) ||
     a.mcp.localeCompare(b.mcp) ||
     a.tool.localeCompare(b.tool) ||
-    (a.venue ?? '').localeCompare(b.venue ?? '')
+    a.venues.join(',').localeCompare(b.venues.join(','))
   );
 }
 
@@ -94,17 +94,16 @@ export function findCapability(query: FindQuery, here: readonly string[], root =
         mcp: server.id,
         tool: tool.name,
         effect: tool.effect,
-        official: server.official,
+        official: tool.official ?? server.official,
         here: here.includes(server.id),
       };
       if (!tool.venues) {
         // A tool that names no venue cannot claim the one the agent asked about.
-        if (!venueFilter) paths.push({ ...base, venue: null });
+        if (!venueFilter) paths.push({ ...base, venues: [] });
         continue;
       }
-      for (const v of tool.venues) {
-        if (scopeIds.has(v)) paths.push({ ...base, venue: v });
-      }
+      const toolVenues = tool.venues.filter((v) => scopeIds.has(v));
+      if (toolVenues.length) paths.push({ ...base, venues: toolVenues });
     }
   }
   paths.sort(comparePaths);
@@ -112,7 +111,7 @@ export function findCapability(query: FindQuery, here: readonly string[], root =
   const gaps = venues.flatMap((v) =>
     v.capabilities
       .filter((c) => matchesCapability(c, capability))
-      .filter((c) => !paths.some((p) => p.venue === v.id && p.capability === c))
+      .filter((c) => !paths.some((p) => p.capability === c && p.venues.includes(v.id)))
       .map((c) => ({ venue: v.id, capability: c })),
   );
 

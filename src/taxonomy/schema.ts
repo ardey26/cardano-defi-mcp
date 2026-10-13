@@ -55,6 +55,8 @@ export const McpToolSchema = z.strictObject({
   // Omitted for a venue-agnostic tool (a wallet or an aggregator that does not name venues).
   venues: z.array(z.string().min(1)).min(1).optional(),
   effect: EffectSchema,
+  // Overrides the server's flag, e.g. an official server's tool that quotes a third-party venue.
+  official: z.boolean().optional(),
   notes: z.string().min(1).optional(),
 });
 
